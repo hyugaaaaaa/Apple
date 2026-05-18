@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "commands": [
+    {
+      "id": "open_safari",
+      "label": "Safariを開く",
+      "enabled": true,
+      "ui": { "requireHold": false, "dangerous": false },
+      "action": { "type": "open_app", "app": "Safari" }
+    },
+    {
+      "id": "open_finder",
+      "label": "Finderを開く",
+      "enabled": true,
+      "ui": { "requireHold": false, "dangerous": false },
+      "action": { "type": "open_app", "app": "Finder" }
+    },
+    {
+      "id": "open_terminal",
+      "label": "Terminalを開く",
+      "enabled": true,
+      "ui": { "requireHold": false, "dangerous": false },
+      "action": { "type": "open_app", "app": "Terminal" }
+    },
+    {
+      "id": "open_codex",
+      "label": "Codexを開く",
+      "enabled": true,
+      "ui": { "requireHold": false, "dangerous": false },
+      "action": { "type": "open_app", "app": "Codex" }
+    }
+  ]
+}

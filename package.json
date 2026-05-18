@@ -1,0 +1,14 @@
+{
+  "name": "iphone-mac-left-controller",
+  "version": "1.0.0",
+  "description": "Use iPhone as a low-latency left-hand controller for Mac via WebSocket",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "cert:gen": "bash ./scripts/gen-cert.sh",
+    "icon:sync": "node ./scripts/sync-app-icons.js ./commands.json ./public/icons"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

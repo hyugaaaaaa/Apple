@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#251103" />
+  <title>Left Controller</title>
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <main class="app-shell">
+    <section id="apps-view" class="view apps-view active" aria-label="apps view">
+      <section id="command-grid" class="app-grid" aria-label="controller buttons"></section>
+    </section>
+
+    <section id="about-view" class="view about-view" aria-label="about view">
+      <h1>Controller Status</h1>
+      <section class="debug" aria-label="debug panel">
+        <div><strong>WS URL:</strong> <span id="ws-url">-</span></div>
+        <div><strong>Status:</strong> <span id="ws-status">未接続</span></div>
+        <div><strong>Auth:</strong> <span id="auth-status">未認証</span></div>
+        <div><strong>Commands:</strong> <span id="command-count">0</span></div>
+        <div><strong>Last:</strong> <span id="last-event">-</span></div>
+        <div class="pin-row">
+          <input id="pin-input" type="password" inputmode="numeric" maxlength="8" placeholder="PIN" />
+          <button id="auth-btn" class="ghost small" type="button">認証</button>
+          <button id="lock-btn" class="ghost small" type="button">ロック</button>
+        </div>
+        <button id="clear-cache" class="ghost" type="button">キャッシュクリア</button>
+      </section>
+    </section>
+
+    <nav class="bottom-nav" aria-label="tabs">
+      <button id="tab-apps" class="tab-btn active" type="button">Apps</button>
+      <button id="tab-about" class="tab-btn" type="button">About</button>
+      <button id="tab-clock" class="tab-btn round" type="button" aria-label="clock">◷</button>
+    </nav>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>
