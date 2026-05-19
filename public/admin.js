@@ -564,5 +564,10 @@ if (rotatePinBtn) {
 }
 
 loadState().catch((err) => {
+  const isWorkers = /\.workers\.dev$/i.test(window.location.hostname || '');
+  if (isWorkers) {
+    setStatus('workers.devは管理APIを持たないため、Tunnel管理URLへリダイレクト設定が必要です。', false);
+    return;
+  }
   setStatus(`読み込み失敗: ${err.message}`, false);
 });

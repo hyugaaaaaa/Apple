@@ -3,7 +3,49 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="left-controller-admin-redirect" content="" />
   <title>Left Controller 管理画面</title>
+  <script>
+    (function () {
+      var host = (window.location.hostname || '').toLowerCase();
+      var path = (window.location.pathname || '').toLowerCase();
+      var isWorkersHost = host.endsWith('.workers.dev');
+      var isAdminPath = path === '/admin' || path === '/admin/' || path === '/admin.html';
+      if (!isWorkersHost || !isAdminPath) return;
+
+      var storageKey = 'left_controller_tunnel_admin_url';
+      var params = new URLSearchParams(window.location.search || '');
+      var queryCandidate = params.get('tunnelAdminUrl') || params.get('tunnel') || '';
+
+      if (queryCandidate) {
+        try {
+          var queryUrl = new URL(queryCandidate);
+          localStorage.setItem(storageKey, queryUrl.href);
+        } catch (_err) {
+          // ignore invalid query URL
+        }
+      }
+
+      var metaEl = document.querySelector('meta[name="left-controller-admin-redirect"]');
+      var configured = localStorage.getItem(storageKey) || (metaEl ? metaEl.content : '') || '';
+      if (!configured) {
+        window.__LEFT_CONTROLLER_REDIRECT_REQUIRED__ = true;
+        return;
+      }
+
+      try {
+        var target = new URL(configured);
+        if (!target.pathname || target.pathname === '/') {
+          target.pathname = '/admin.html';
+        }
+        if (target.href !== window.location.href) {
+          window.location.replace(target.href);
+        }
+      } catch (_err) {
+        window.__LEFT_CONTROLLER_REDIRECT_REQUIRED__ = true;
+      }
+    })();
+  </script>
   <link rel="icon" href="/favicon.ico" sizes="any" />
   <link rel="stylesheet" href="/style.css" />
   <style>
