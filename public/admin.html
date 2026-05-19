@@ -29,8 +29,19 @@
       var metaEl = document.querySelector('meta[name="left-controller-admin-redirect"]');
       var configured = localStorage.getItem(storageKey) || (metaEl ? metaEl.content : '') || '';
       if (!configured) {
-        window.__LEFT_CONTROLLER_REDIRECT_REQUIRED__ = true;
-        return;
+        var manual = window.prompt('Tunnel管理URLを入力してください\\n例: https://xxxxx.trycloudflare.com', '');
+        if (!manual) {
+          window.__LEFT_CONTROLLER_REDIRECT_REQUIRED__ = true;
+          return;
+        }
+        try {
+          var manualUrl = new URL(manual);
+          localStorage.setItem(storageKey, manualUrl.href);
+          configured = manualUrl.href;
+        } catch (_manualErr) {
+          window.__LEFT_CONTROLLER_REDIRECT_REQUIRED__ = true;
+          return;
+        }
       }
 
       try {
