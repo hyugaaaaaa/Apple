@@ -54,6 +54,17 @@ const MIME_TYPES = {
   '.ico': 'image/x-icon'
 };
 
+const STATIC_ROUTE_ALIASES = new Map([
+  ['/admin', '/admin.html'],
+  ['/admin/', '/admin.html'],
+  ['/auth', '/auth.html'],
+  ['/auth/', '/auth.html'],
+  ['/controller', '/controller.html'],
+  ['/controller/', '/controller.html'],
+  ['/lp', '/lp-onboarding.html'],
+  ['/lp/', '/lp-onboarding.html']
+]);
+
 const DEFAULT_COMMANDS = {
   version: 1,
   commands: [
@@ -1307,6 +1318,9 @@ function serveStaticFile(req, res) {
   if (pathname === '/') {
     pathname = '/index.html';
   }
+  if (STATIC_ROUTE_ALIASES.has(pathname)) {
+    pathname = STATIC_ROUTE_ALIASES.get(pathname);
+  }
 
   const safePath = path.normalize(path.join(PUBLIC_DIR, pathname));
   if (!safePath.startsWith(PUBLIC_DIR)) {
@@ -1317,6 +1331,7 @@ function serveStaticFile(req, res) {
 
   fs.readFile(safePath, (err, data) => {
     if (err) {
+      console.warn(`[HTTP] 404 ${req.method} ${url.pathname}`);
       res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
       res.end('404 Not Found');
       return;
