@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Left Controller 管理画面</title>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="stylesheet" href="/style.css" />
+  <style>
+    body {
+      background: #000 !important;
+      color: #fff;
+    }
+
+    .admin-root {
+      min-height: 100dvh;
+      padding: 12px;
+      display: grid;
+      place-items: center;
+      position: relative;
+      z-index: 2;
+    }
+
+    .desk-window {
+      width: min(96vw, 1480px);
+      height: min(90vh, 900px);
+      border-radius: 34px;
+      background: linear-gradient(180deg, rgba(12, 12, 12, 0.96), rgba(6, 6, 6, 0.98));
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+      display: grid;
+      grid-template-columns: 290px 1fr;
+      overflow: hidden;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+
+    .side {
+      border-right: 1px solid rgba(255, 255, 255, 0.09);
+      padding: 18px 16px;
+      background: linear-gradient(180deg, rgba(16, 16, 16, 0.96), rgba(10, 10, 10, 0.98));
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+      gap: 18px;
+    }
+
+    .nav {
+      display: grid;
+      gap: 10px;
+    }
+
+    .nav-btn {
+      border: 1px solid transparent;
+      border-radius: 16px;
+      background: transparent;
+      color: #ddd;
+      font-size: 40px;
+      font-weight: 700;
+      padding: 14px 18px;
+      text-align: left;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .nav-btn.active {
+      background: rgba(255, 255, 255, 0.14);
+      color: #ffffff;
+      border-color: rgba(255, 255, 255, 0.28);
+    }
+
+    .nav-btn .ico { font-size: 40px; }
+
+    .content {
+      display: grid;
+      grid-template-rows: 100px 1fr;
+    }
+
+    .head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 26px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .head h1 {
+      margin: 0;
+      font-size: 52px;
+      color: #ece8e5;
+      letter-spacing: 0.01em;
+    }
+
+    .head-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .head-btn {
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.06);
+      color: #ece8e5;
+      font-size: 30px;
+      font-weight: 700;
+      padding: 10px 14px;
+    }
+
+    .head-btn.primary {
+      background: rgba(255, 255, 255, 0.14);
+      border-color: rgba(255, 255, 255, 0.4);
+    }
+
+    .head-info {
+      width: 56px;
+      height: 56px;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      font-size: 36px;
+      padding: 0;
+    }
+
+    .view {
+      display: none;
+      padding: 18px 24px 18px;
+      min-height: 0;
+    }
+    .view.active { display: block; }
+
+    .apps-shell {
+      height: 100%;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 14px;
+    }
+
+    .mini-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #bfb8b0;
+      font-size: 14px;
+    }
+
+    .mini-row input {
+      flex: 1;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(0, 0, 0, 0.2);
+      color: #fff;
+      padding: 8px 10px;
+    }
+
+    .board {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 1fr 0.5fr;
+      gap: 18px;
+    }
+
+    .panel {
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 34px;
+      background: rgba(9, 9, 9, 0.72);
+      padding: 18px;
+      overflow: auto;
+    }
+
+    .pinned-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 20px 24px;
+    }
+
+    .pin-tile {
+      border: 0;
+      background: transparent;
+      color: #f2f2f2;
+      text-align: center;
+      display: grid;
+      gap: 10px;
+      justify-items: center;
+      padding: 0;
+      cursor: pointer;
+    }
+
+    .icon-wrap {
+      width: 124px;
+      height: 124px;
+      border-radius: 34px;
+      background: #121213;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 0 12px 26px rgba(0, 0, 0, 0.45);
+      display: grid;
+      place-items: center;
+      position: relative;
+    }
+
+    .icon-wrap img {
+      width: 84px;
+      height: 84px;
+      border-radius: 20px;
+      object-fit: cover;
+    }
+
+    .pin-name {
+      font-size: 22px;
+      font-weight: 600;
+      width: 100%;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .pin-tile.add .icon-wrap {
+      background: #0c0c10;
+    }
+    .pin-tile.add .plus {
+      font-size: 50px;
+      font-weight: 800;
+      color: #ece0d3;
+      line-height: 1;
+    }
+
+    .dots {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      padding: 4px 0;
+    }
+    .dots .dot-btn {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(228, 218, 205, 0.35);
+      border: 0;
+      padding: 0;
+      cursor: pointer;
+    }
+    .dots .dot-btn.active { background: #b6afa8; }
+    .dots .dot-btn.current { background: #efe3d8; width: 18px; }
+    .dots .dot-btn:disabled { opacity: 0.45; cursor: default; }
+
+    .about-card {
+      border: 1px solid rgba(255, 255, 255, 0.11);
+      border-radius: 20px;
+      background: rgba(8, 8, 8, 0.8);
+      padding: 16px;
+      color: #f1f1f1;
+      max-width: 560px;
+      font-size: 18px;
+      line-height: 1.6;
+    }
+
+    .about-card .pin {
+      font-size: 42px;
+      letter-spacing: 0.14em;
+      font-weight: 800;
+    }
+
+    .about-device {
+      margin: 6px 0 12px;
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.72);
+    }
+
+    .about-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+
+    .status-line {
+      margin-top: 10px;
+      color: rgba(255, 255, 255, 0.72);
+      min-height: 1.2em;
+    }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(6, 6, 8, 0.5);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 60;
+    }
+
+    .modal.show { display: flex; }
+
+    .modal-card {
+      width: min(92vw, 820px);
+      max-height: 82vh;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 18px;
+      background: rgba(8, 8, 8, 0.95);
+      padding: 14px;
+      display: grid;
+      grid-template-rows: auto auto 1fr auto;
+      gap: 10px;
+    }
+
+    .modal-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      color: #efebe7;
+      font-size: 22px;
+      font-weight: 700;
+    }
+
+    .modal-search {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(0, 0, 0, 0.25);
+      color: #fff;
+      padding: 10px 12px;
+      font-size: 15px;
+    }
+
+    .modal-list {
+      overflow: auto;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      padding-right: 2px;
+    }
+
+    .modal-item {
+      display: grid;
+      grid-template-columns: auto auto 1fr;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 10px;
+      padding: 8px;
+      color: #dfdad4;
+      background: rgba(255, 255, 255, 0.03);
+      font-size: 13px;
+    }
+
+    .modal-item img {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      object-fit: cover;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    @media (max-width: 1100px) {
+      .desk-window { grid-template-columns: 220px 1fr; }
+      .pinned-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .icon-wrap { width: 106px; height: 106px; border-radius: 30px; }
+      .icon-wrap img { width: 72px; height: 72px; }
+      .pin-name { font-size: 18px; }
+      .head h1 { font-size: 40px; }
+    }
+
+    @media (max-width: 860px) {
+      .desk-window { grid-template-columns: 1fr; }
+      .side { grid-template-columns: auto 1fr; grid-template-rows: auto; align-items: center; }
+      .board { grid-template-columns: 1fr; }
+      .modal-list { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="admin-root">
+    <div class="desk-window">
+      <aside class="side">
+        <nav class="nav">
+          <button id="tab-apps" class="nav-btn active" type="button"><span class="ico">⌘</span>アプリ</button>
+          <button id="tab-about" class="nav-btn" type="button"><span class="ico">ⓘ</span>情報</button>
+        </nav>
+      </aside>
+
+      <section class="content">
+        <header class="head">
+          <h1 id="head-title">登録アプリ</h1>
+          <div class="head-actions">
+            <button id="save-btn" class="head-btn primary" type="button">保存</button>
+            <button id="head-info" class="head-btn head-info" type="button">i</button>
+          </div>
+        </header>
+
+        <section id="view-apps" class="view active">
+          <div class="apps-shell">
+            <div class="mini-row">
+              <span>検索</span>
+              <input id="search-input" type="search" placeholder="アプリ名で検索" />
+            </div>
+
+            <div class="board">
+              <div class="panel">
+                <div id="pinned-grid" class="pinned-grid"></div>
+              </div>
+              <div class="panel" style="opacity:.55"></div>
+            </div>
+
+            <div id="page-dots" class="dots"></div>
+          </div>
+        </section>
+
+        <section id="view-about" class="view">
+          <div class="about-card">
+            <div>接続PIN</div>
+            <div id="device-name" class="about-device">デバイス: -</div>
+            <div id="pin-code" class="pin">----</div>
+            <div id="pin-note">PIN認証状態を確認中...</div>
+            <div class="about-actions">
+              <button id="copy-pin-btn" class="head-btn" type="button">PINをコピー</button>
+              <button id="rotate-pin-btn" class="head-btn" type="button">PIN再発行</button>
+            </div>
+            <div id="save-status" class="status-line">-</div>
+          </div>
+        </section>
+      </section>
+    </div>
+  </main>
+
+  <div id="app-modal" class="modal" aria-hidden="true">
+    <div class="modal-card">
+      <div class="modal-top">
+        <span>アプリ一覧</span>
+        <button id="close-modal" class="head-btn" type="button">閉じる</button>
+      </div>
+      <input id="modal-search" class="modal-search" type="search" placeholder="アプリ名を検索" />
+      <div id="modal-list" class="modal-list"></div>
+      <div class="modal-actions">
+        <button id="clear-selection" class="head-btn" type="button">解除</button>
+        <button id="apply-selection" class="head-btn primary" type="button">適用</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/admin.js"></script>
+</body>
+</html>

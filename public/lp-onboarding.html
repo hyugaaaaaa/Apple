@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <title>Hyperfocus Onboarding</title>
+  <style>
+    :root {
+      --bg: #000000;
+      --fg: #ffffff;
+      --fg-muted: rgba(255, 255, 255, 0.84);
+      --cta-bg: rgba(255, 255, 255, 0.1);
+      --cta-border: rgba(255, 255, 255, 0.24);
+      --ease-premium: cubic-bezier(0.25, 1, 0.5, 1);
+      --step-duration: 820ms;
+      --item-duration: 760ms;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--fg);
+      overflow: hidden;
+      font-family: "SF Pro Display", "Hiragino Sans", "Noto Sans JP", sans-serif;
+    }
+
+    .onboarding {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh;
+      isolation: isolate;
+      background: #000;
+    }
+
+    .step {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      grid-template-rows: 1fr auto;
+      padding: max(22px, env(safe-area-inset-top)) 24px calc(28px + env(safe-area-inset-bottom));
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(26px);
+      transition:
+        opacity var(--step-duration) var(--ease-premium),
+        transform var(--step-duration) var(--ease-premium);
+    }
+
+    .step.active {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+      z-index: 3;
+    }
+
+    .step.exiting {
+      opacity: 0;
+      transform: translateY(-34px);
+      pointer-events: none;
+      z-index: 4;
+    }
+
+    .content {
+      align-self: center;
+      width: min(88vw, 720px);
+      margin-inline: auto;
+      text-align: center;
+    }
+
+    .title,
+    .desc,
+    .cta {
+      opacity: 0;
+      transform: translateY(16px);
+      transition:
+        opacity var(--item-duration) var(--ease-premium),
+        transform var(--item-duration) var(--ease-premium);
+    }
+
+    .step.active .title,
+    .step.active .desc,
+    .step.active .cta {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .step.active .title { transition-delay: 80ms; }
+    .step.active .desc { transition-delay: 260ms; }
+    .step.active .cta { transition-delay: 420ms; }
+
+    .title {
+      margin: 0;
+      font-size: clamp(34px, 6.5vw, 64px);
+      line-height: 1.26;
+      letter-spacing: 0.01em;
+      font-weight: 700;
+      white-space: pre-line;
+      text-wrap: balance;
+    }
+
+    .desc {
+      margin: 22px auto 0;
+      font-size: clamp(16px, 2.9vw, 22px);
+      line-height: 1.7;
+      color: var(--fg-muted);
+      max-width: 64ch;
+      white-space: pre-line;
+      text-wrap: pretty;
+    }
+
+    .bottom {
+      width: min(92vw, 760px);
+      margin: 0 auto;
+    }
+
+    .cta {
+      width: 100%;
+      appearance: none;
+      border: 1px solid var(--cta-border);
+      border-radius: 999px;
+      background: var(--cta-bg);
+      color: var(--fg);
+      font-size: clamp(17px, 2.6vw, 22px);
+      font-weight: 600;
+      min-height: 58px;
+      padding: 14px 24px;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      transition:
+        transform 320ms var(--ease-premium),
+        background-color 320ms var(--ease-premium),
+        border-color 320ms var(--ease-premium),
+        opacity var(--item-duration) var(--ease-premium);
+    }
+
+    .cta:active {
+      transform: scale(0.985);
+      background: rgba(255, 255, 255, 0.16);
+      border-color: rgba(255, 255, 255, 0.42);
+    }
+
+    .cta:disabled {
+      opacity: 0.55;
+      pointer-events: none;
+    }
+
+    @media (max-width: 480px) {
+      .step {
+        padding-left: 18px;
+        padding-right: 18px;
+      }
+
+      .desc {
+        margin-top: 18px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .step,
+      .title,
+      .desc,
+      .cta {
+        transition-duration: 1ms !important;
+        transition-delay: 0ms !important;
+        transform: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main id="onboarding" class="onboarding" aria-label="onboarding flow">
+    <section class="step" data-step>
+      <div class="content">
+        <h1 class="title">ようこそ！👋
+iPhoneをMacの
+左手デバイスに。</h1>
+      </div>
+      <div class="bottom">
+        <button class="cta" type="button">はじめる</button>
+      </div>
+    </section>
+
+    <section class="step" data-step>
+      <div class="content">
+        <h1 class="title">作業中に
+アプリ切り替えで
+手が止まりませんか？</h1>
+      </div>
+      <div class="bottom">
+        <button class="cta" type="button">よくある</button>
+      </div>
+    </section>
+
+    <section class="step" data-step>
+      <div class="content">
+        <h1 class="title">iPhoneから
+ワンタップで
+操作できたらどうでしょう？</h1>
+      </div>
+      <div class="bottom">
+        <button class="cta" type="button">詳しく見る</button>
+      </div>
+    </section>
+
+    <section class="step" data-step>
+      <div class="content">
+        <h1 class="title">解決策:
+Left Controller.</h1>
+        <p class="desc">よく使うMacアプリをiPhoneに登録。PIN認証で接続し、タップだけでSafariやFinderなどを即座に呼び出せます。</p>
+      </div>
+      <div class="bottom">
+        <button class="cta" type="button">どう使うの？</button>
+      </div>
+    </section>
+
+    <section class="step" data-step>
+      <div class="content">
+        <h1 class="title">最短セットアップで
+すぐ使える</h1>
+        <p class="desc">Macの管理画面でアプリを選択し、iPhoneでPINを入力するだけ。オフラインのローカル接続でも安定して動作します。</p>
+      </div>
+      <div class="bottom">
+        <button id="final-cta" class="cta" type="button">今すぐ使ってみる</button>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      const steps = Array.from(document.querySelectorAll('[data-step]'));
+      const total = steps.length;
+      const DURATION = 820;
+      let index = 0;
+      let animating = false;
+
+      function isMobileDevice() {
+        const ua = navigator.userAgent || '';
+        const mobileUA = /iPhone|iPad|iPod|Android|Mobile/i.test(ua);
+        const iPadOS13Up = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+        return mobileUA || iPadOS13Up;
+      }
+
+      function routeByDevice() {
+        const target = isMobileDevice() ? '/controller.html' : '/admin.html';
+        const isFile = window.location.protocol === 'file:';
+        if (isFile) {
+          window.location.href = `http://localhost:8080${target}`;
+          return;
+        }
+        window.location.href = target;
+      }
+
+      function activateStep(nextIndex, direction) {
+        const current = steps[index];
+        const next = steps[nextIndex];
+        if (!current || !next || animating) return;
+
+        animating = true;
+
+        next.classList.remove('active', 'exiting');
+        next.style.transform = direction > 0 ? 'translateY(30px)' : 'translateY(-30px)';
+        next.style.opacity = '0';
+
+        requestAnimationFrame(() => {
+          current.classList.add('exiting');
+          next.classList.add('active');
+          next.style.transform = '';
+          next.style.opacity = '';
+        });
+
+        window.setTimeout(() => {
+          current.classList.remove('active', 'exiting');
+          current.style.transform = '';
+          current.style.opacity = '';
+          index = nextIndex;
+          animating = false;
+        }, DURATION);
+      }
+
+      function goNext() {
+        if (animating) return;
+        if (index >= total - 1) {
+          routeByDevice();
+          return;
+        }
+        activateStep(index + 1, 1);
+      }
+
+      steps.forEach((step) => {
+        const cta = step.querySelector('.cta');
+        if (!cta) return;
+        cta.addEventListener('click', goNext);
+      });
+
+      steps[0].classList.add('active');
+    })();
+  </script>
+</body>
+</html>

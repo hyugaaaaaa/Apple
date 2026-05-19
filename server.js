@@ -5,10 +5,14 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const crypto = require('crypto');
 const { execFile, spawnSync } = require('child_process');
 const { WebSocketServer } = require('ws');
 
 const PORT = 8080;
+const ITEMS_PER_PAGE = 8;
+const MAX_CONTROLLER_PAGES = 3;
+const MAX_CONTROLLER_COMMANDS = ITEMS_PER_PAGE * MAX_CONTROLLER_PAGES;
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const COMMANDS_CONFIG_PATH = path.join(__dirname, 'commands.json');
 const ICON_SYNC_SCRIPT_PATH = path.join(__dirname, 'scripts', 'sync-app-icons.js');
@@ -19,11 +23,16 @@ const CERT_CNF_PATH = path.join(CERT_DIR, 'openssl.cnf');
 const LOG_DIR = path.join(__dirname, 'logs');
 const AUDIT_LOG_PATH = path.join(LOG_DIR, 'audit.log');
 const ICONS_DIR = path.join(PUBLIC_DIR, 'icons');
+const ADMIN_ICONS_DIR = path.join(PUBLIC_DIR, 'admin-icons');
+const PIN_STATE_PATH = path.join(__dirname, 'pin-state.json');
 
-const APP_PIN = process.env.APP_PIN || '2580';
+const APP_PIN_ENV = process.env.APP_PIN || '';
 const REQUIRE_PIN = process.env.REQUIRE_PIN !== 'false';
 const ALLOWED_CLIENTS_RAW = process.env.ALLOWED_CLIENTS || '';
 const TLS_MODE = (process.env.TLS_MODE || 'off').toLowerCase(); // off | auto | on
+const DEBUG_UI = process.env.DEBUG_UI
+  ? process.env.DEBUG_UI === 'true'
+  : process.env.NODE_ENV !== 'production';
 
 const DEFAULT_ALLOWED_CIDRS = [
   '127.0.0.0/8',
@@ -75,6 +84,34 @@ const DEFAULT_COMMANDS = {
       enabled: true,
       ui: { requireHold: false, dangerous: false },
       action: { type: 'open_app', app: 'Codex' }
+    },
+    {
+      id: 'open_music',
+      label: 'Musicを開く',
+      enabled: true,
+      ui: { requireHold: false, dangerous: false },
+      action: { type: 'open_app', app: 'Music' }
+    },
+    {
+      id: 'open_mail',
+      label: 'Mailを開く',
+      enabled: true,
+      ui: { requireHold: false, dangerous: false },
+      action: { type: 'open_app', app: 'Mail' }
+    },
+    {
+      id: 'open_notes',
+      label: 'メモを開く',
+      enabled: true,
+      ui: { requireHold: false, dangerous: false },
+      action: { type: 'open_app', app: 'Notes' }
+    },
+    {
+      id: 'open_settings',
+      label: '設定を開く',
+      enabled: true,
+      ui: { requireHold: false, dangerous: false },
+      action: { type: 'open_app', app: 'System Settings' }
     }
   ]
 };
@@ -85,8 +122,153 @@ const commandCache = {
   map: new Map()
 };
 
+const DEVICE_NAME = os.hostname();
+let activePin = '2580';
+let pinSource = 'default';
+const pinAttemptMap = new Map();
+const sessionTokenMap = new Map();
+const SESSION_TOKEN_TTL_MS = Number(process.env.SESSION_TOKEN_TTL_MS || (12 * 60 * 60 * 1000));
+const PIN_MAX_ATTEMPTS = Number(process.env.PIN_MAX_ATTEMPTS || 5);
+const PIN_LOCK_MS = Number(process.env.PIN_LOCK_MS || (10 * 60 * 1000));
+
 function ensureDir(dirPath) {
   fs.mkdirSync(dirPath, { recursive: true });
+}
+
+function normalizePin(pin) {
+  const normalized = String(pin || '').trim();
+  if (!/^\d{4,8}$/.test(normalized)) return '';
+  return normalized;
+}
+
+function generatePin(digits = 4) {
+  const max = 10 ** digits;
+  const n = Math.floor(Math.random() * max);
+  return String(n).padStart(digits, '0');
+}
+
+function writePinState(pin) {
+  const payload = {
+    pin,
+    updatedAt: new Date().toISOString()
+  };
+  fs.writeFileSync(PIN_STATE_PATH, JSON.stringify(payload, null, 2), 'utf8');
+}
+
+function loadPinState() {
+  if (fs.existsSync(PIN_STATE_PATH)) {
+    try {
+      const raw = fs.readFileSync(PIN_STATE_PATH, 'utf8');
+      const parsed = JSON.parse(raw);
+      const normalized = normalizePin(parsed.pin);
+      if (normalized) {
+        return { pin: normalized, source: 'file' };
+      }
+    } catch {
+      // ignore invalid pin file and continue
+    }
+  }
+
+  if (APP_PIN_ENV) {
+    const normalized = normalizePin(APP_PIN_ENV);
+    if (!normalized) {
+      throw new Error('APP_PIN must be 4-8 digits');
+    }
+    return { pin: normalized, source: 'env' };
+  }
+
+  const generated = generatePin(6);
+  writePinState(generated);
+  return { pin: generated, source: 'generated' };
+}
+
+function rotatePin() {
+  const nextPin = generatePin(6);
+  writePinState(nextPin);
+  activePin = nextPin;
+  pinSource = 'file';
+  sessionTokenMap.clear();
+  pinAttemptMap.clear();
+  return activePin;
+}
+
+function getPinAttemptState(clientIp) {
+  const now = Date.now();
+  const state = pinAttemptMap.get(clientIp);
+  if (!state) {
+    return { failCount: 0, lockUntil: 0 };
+  }
+  if (state.lockUntil && now >= state.lockUntil) {
+    pinAttemptMap.delete(clientIp);
+    return { failCount: 0, lockUntil: 0 };
+  }
+  return state;
+}
+
+function registerPinFailure(clientIp) {
+  const now = Date.now();
+  const state = getPinAttemptState(clientIp);
+  const failCount = Number(state.failCount || 0) + 1;
+  const lockUntil = failCount >= PIN_MAX_ATTEMPTS ? now + PIN_LOCK_MS : 0;
+  const nextState = { failCount, lockUntil };
+  pinAttemptMap.set(clientIp, nextState);
+  return nextState;
+}
+
+function clearPinFailures(clientIp) {
+  pinAttemptMap.delete(clientIp);
+}
+
+function issueSessionToken(clientIp, userAgent) {
+  const now = Date.now();
+  const token = crypto.randomBytes(32).toString('hex');
+  sessionTokenMap.set(token, {
+    clientIp,
+    userAgent: String(userAgent || ''),
+    createdAt: now,
+    expiresAt: now + SESSION_TOKEN_TTL_MS
+  });
+  return {
+    token,
+    expiresAt: now + SESSION_TOKEN_TTL_MS
+  };
+}
+
+function verifySessionToken(token, clientIp) {
+  const raw = String(token || '').trim();
+  if (!raw) {
+    return { ok: false, reason: 'missing_token' };
+  }
+  const session = sessionTokenMap.get(raw);
+  if (!session) {
+    return { ok: false, reason: 'invalid_token' };
+  }
+  if (Date.now() >= session.expiresAt) {
+    sessionTokenMap.delete(raw);
+    return { ok: false, reason: 'token_expired' };
+  }
+  if (session.clientIp !== clientIp) {
+    return { ok: false, reason: 'token_ip_mismatch' };
+  }
+  return { ok: true, token: raw, expiresAt: session.expiresAt };
+}
+
+function cleanupAuthStates() {
+  const now = Date.now();
+  for (const [key, value] of sessionTokenMap.entries()) {
+    if (!value || now >= value.expiresAt) {
+      sessionTokenMap.delete(key);
+    }
+  }
+  for (const [key, value] of pinAttemptMap.entries()) {
+    if (!value) {
+      pinAttemptMap.delete(key);
+      continue;
+    }
+    if (value.lockUntil && now >= value.lockUntil) {
+      pinAttemptMap.delete(key);
+    }
+  }
 }
 
 function appendAudit(entry) {
@@ -250,10 +432,13 @@ function escapeAppleScriptString(value) {
 function buildActivateAndHideScript(appName) {
   const appLiteral = escapeAppleScriptString(appName);
   return `tell application "${appLiteral}" to activate
+delay 0.12
 tell application "System Events"
-  set theProcesses to every application process whose background only is false and name is not "${appLiteral}"
+  set theProcesses to every application process whose background only is false and frontmost is false
   repeat with p in theProcesses
-    set visible of p to false
+    try
+      set visible of p to false
+    end try
   end repeat
 end tell`;
 }
@@ -416,6 +601,8 @@ function normalizeCommandConfig(rawItem, idx) {
   }
 
   const ui = item.ui || {};
+  const slot = Number(ui.slot);
+  const hasValidSlot = Number.isInteger(slot) && slot >= 0 && slot < MAX_CONTROLLER_COMMANDS;
 
   return {
     id,
@@ -423,7 +610,8 @@ function normalizeCommandConfig(rawItem, idx) {
     enabled: item.enabled !== false,
     ui: {
       requireHold: ui.requireHold === true,
-      dangerous: ui.dangerous === true
+      dangerous: ui.dangerous === true,
+      slot: hasValidSlot ? slot : undefined
     },
     action
   };
@@ -448,6 +636,260 @@ function parseCommandsConfig(rawText) {
   }
 
   return normalized;
+}
+
+function stripAppExtension(name) {
+  if (String(name || '').toLowerCase().endsWith('.app')) {
+    return String(name).slice(0, -4);
+  }
+  return String(name || '');
+}
+
+function simpleHashHex(input) {
+  let hash = 0x811c9dc5;
+  const str = String(input || '');
+  for (let i = 0; i < str.length; i += 1) {
+    hash ^= str.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash.toString(16).padStart(8, '0');
+}
+
+function toCommandId(appName, bundlePath, usedIds) {
+  const baseSlug = String(appName || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+
+  const base = baseSlug
+    ? `open_${baseSlug}`
+    : `open_app_${simpleHashHex(bundlePath).slice(0, 6)}`;
+
+  let id = base;
+  let seq = 2;
+  while (usedIds.has(id)) {
+    id = `${base}_${seq}`;
+    seq += 1;
+  }
+  usedIds.add(id);
+  return id;
+}
+
+function walkAppBundles(rootDir, maxDepth = 4) {
+  const out = [];
+
+  function walk(currentDir, depth) {
+    if (depth > maxDepth) return;
+
+    let entries;
+    try {
+      entries = fs.readdirSync(currentDir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+
+    for (const ent of entries) {
+      if (!ent.isDirectory()) continue;
+      if (ent.name.startsWith('.')) continue;
+
+      const fullPath = path.join(currentDir, ent.name);
+      if (ent.name.toLowerCase().endsWith('.app')) {
+        out.push(fullPath);
+        continue;
+      }
+
+      walk(fullPath, depth + 1);
+    }
+  }
+
+  walk(rootDir, 0);
+  return out;
+}
+
+function listInstalledApplications() {
+  const roots = [
+    '/Applications',
+    '/System/Applications',
+    '/System/Library/CoreServices',
+    '/System/Cryptexes/App/System/Applications',
+    path.join(os.homedir(), 'Applications')
+  ];
+
+  const seen = new Set();
+  const apps = [];
+
+  for (const root of roots) {
+    if (!fs.existsSync(root)) continue;
+    const bundles = walkAppBundles(root, 4);
+    for (const rawPath of bundles) {
+      let bundlePath = rawPath;
+      try {
+        bundlePath = fs.realpathSync(rawPath);
+      } catch {
+        bundlePath = rawPath;
+      }
+      if (seen.has(bundlePath)) continue;
+      seen.add(bundlePath);
+
+      const appName = stripAppExtension(path.basename(bundlePath));
+      apps.push({ appName, bundlePath });
+    }
+  }
+
+  apps.sort((a, b) => {
+    const byName = a.appName.localeCompare(b.appName, 'ja');
+    if (byName !== 0) return byName;
+    return a.bundlePath.localeCompare(b.bundlePath, 'ja');
+  });
+
+  return apps;
+}
+
+function runTextSync(bin, args) {
+  const ret = spawnSync(bin, args, { encoding: 'utf8' });
+  if (ret.error || ret.status !== 0) return '';
+  return (ret.stdout || '').trim();
+}
+
+function plistReadSync(plistPath, keyPath) {
+  return runTextSync('/usr/libexec/PlistBuddy', ['-c', `Print ${keyPath}`, plistPath]);
+}
+
+function resolveIconSourceFromBundle(appBundlePath) {
+  const plistPath = path.join(appBundlePath, 'Contents', 'Info.plist');
+  if (!fs.existsSync(plistPath)) return '';
+
+  const candidates = [];
+  const v1 = plistReadSync(plistPath, ':CFBundleIconFile');
+  const v2 = plistReadSync(plistPath, ':CFBundleIcons:CFBundlePrimaryIcon:CFBundleIconFile');
+  const v3 = plistReadSync(plistPath, ':CFBundleIcons:CFBundlePrimaryIcon:CFBundleIconFiles:0');
+
+  [v1, v2, v3].forEach((v) => {
+    if (!v) return;
+    candidates.push(v);
+    if (!path.extname(v)) candidates.push(`${v}.icns`);
+    if (!path.extname(v)) candidates.push(`${v}.png`);
+  });
+
+  const resourcesDir = path.join(appBundlePath, 'Contents', 'Resources');
+  if (!fs.existsSync(resourcesDir)) return '';
+
+  for (const name of candidates) {
+    const p = path.join(resourcesDir, name);
+    if (fs.existsSync(p)) return p;
+  }
+
+  const fallbackIcns = fs.readdirSync(resourcesDir)
+    .filter((f) => f.toLowerCase().endsWith('.icns'))
+    .sort();
+  if (fallbackIcns.length > 0) {
+    return path.join(resourcesDir, fallbackIcns[0]);
+  }
+  return '';
+}
+
+function adminIconFileName(bundlePath) {
+  const hash = simpleHashHex(bundlePath);
+  const base = stripAppExtension(path.basename(bundlePath))
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 48);
+  return `${hash}_${base || 'app'}.png`;
+}
+
+function escapeXml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function appInitials(name) {
+  const normalized = String(name || '').trim();
+  if (!normalized) return 'APP';
+  const words = normalized.split(/[^A-Za-z0-9\u3040-\u30ff\u3400-\u9fbf]+/).filter(Boolean);
+  if (words.length >= 2) {
+    return `${words[0].charAt(0)}${words[1].charAt(0)}`.toUpperCase();
+  }
+  return normalized.slice(0, 2).toUpperCase();
+}
+
+function buildFallbackAdminIconSvg(appName) {
+  const initials = escapeXml(appInitials(appName));
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="${escapeXml(appName || 'App')}">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2f3542" />
+      <stop offset="100%" stop-color="#11141a" />
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="url(#g)" />
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="2" />
+  <text x="128" y="144" text-anchor="middle" font-family="SF Pro Display, Avenir Next, sans-serif" font-size="76" font-weight="700" fill="#f4f6fb">${initials}</text>
+</svg>`;
+}
+
+function sendFallbackAdminIcon(res, appName) {
+  const svg = buildFallbackAdminIconSvg(appName);
+  res.writeHead(200, {
+    'Content-Type': 'image/svg+xml; charset=utf-8',
+    'Cache-Control': 'public, max-age=3600'
+  });
+  res.end(svg);
+}
+
+function ensureAdminIcon(bundlePath) {
+  ensureDir(ADMIN_ICONS_DIR);
+  const fileName = adminIconFileName(bundlePath);
+  const outPath = path.join(ADMIN_ICONS_DIR, fileName);
+  if (fs.existsSync(outPath)) return outPath;
+
+  const iconSrc = resolveIconSourceFromBundle(bundlePath);
+  if (!iconSrc) return '';
+
+  const ret = spawnSync('sips', ['-s', 'format', 'png', iconSrc, '--out', outPath], { encoding: 'utf8' });
+  if (ret.error || ret.status !== 0 || !fs.existsSync(outPath)) {
+    return '';
+  }
+  return outPath;
+}
+
+function readJsonBody(req, maxBytes = 1024 * 1024) {
+  return new Promise((resolve, reject) => {
+    let received = 0;
+    const chunks = [];
+
+    req.on('data', (chunk) => {
+      received += chunk.length;
+      if (received > maxBytes) {
+        reject(new Error('Request body too large'));
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+
+    req.on('end', () => {
+      const raw = Buffer.concat(chunks).toString('utf8').trim();
+      if (!raw) {
+        resolve({});
+        return;
+      }
+      try {
+        resolve(JSON.parse(raw));
+      } catch {
+        reject(new Error('Invalid JSON body'));
+      }
+    });
+
+    req.on('error', (err) => {
+      reject(err);
+    });
+  });
 }
 
 function runIconSync() {
@@ -523,6 +965,7 @@ function getClientCommandList() {
   loadCommandsIfChanged();
   return commandCache.list
     .filter((cmd) => cmd.enabled)
+    .slice(0, MAX_CONTROLLER_COMMANDS)
     .map((cmd) => ({
       id: cmd.id,
       label: cmd.label,
@@ -531,6 +974,132 @@ function getClientCommandList() {
         iconUrl: getCommandIconUrl(cmd.id)
       }
     }));
+}
+
+function buildCommandsConfigFromSelectedApps(selectedApps) {
+  const selectedList = (Array.isArray(selectedApps) ? selectedApps : [])
+    .map((v) => String(v || '').trim())
+    .filter(Boolean)
+    .slice(0, MAX_CONTROLLER_COMMANDS);
+  const installed = listInstalledApplications();
+  const byPath = new Map(installed.map((item) => [item.bundlePath, item]));
+  const seenPaths = new Set();
+  const ordered = [];
+  for (const bundlePath of selectedList) {
+    if (seenPaths.has(bundlePath)) continue;
+    const item = byPath.get(bundlePath);
+    if (!item) continue;
+    seenPaths.add(bundlePath);
+    ordered.push(item);
+  }
+  const usedIds = new Set();
+
+  const commands = ordered.map((item, index) => ({
+      id: toCommandId(item.appName, item.bundlePath, usedIds),
+      label: `${item.appName}を開く`,
+      enabled: true,
+      ui: { requireHold: false, dangerous: false, slot: index },
+      action: { type: 'open_app', app: item.appName }
+    }));
+
+  return {
+    version: 1,
+    commands
+  };
+}
+
+function buildCommandsConfigFromSelectedSlots(selectedSlots) {
+  const slots = Array.isArray(selectedSlots) ? selectedSlots.slice(0, MAX_CONTROLLER_COMMANDS) : [];
+  const installed = listInstalledApplications();
+  const byPath = new Map(installed.map((item) => [item.bundlePath, item]));
+  const usedIds = new Set();
+  const usedPaths = new Set();
+  const commands = [];
+
+  for (let slot = 0; slot < MAX_CONTROLLER_COMMANDS; slot += 1) {
+    const rawPath = slots[slot];
+    const bundlePath = rawPath ? String(rawPath).trim() : '';
+    if (!bundlePath) continue;
+    if (usedPaths.has(bundlePath)) continue;
+    const item = byPath.get(bundlePath);
+    if (!item) continue;
+    usedPaths.add(bundlePath);
+    commands.push({
+      id: toCommandId(item.appName, item.bundlePath, usedIds),
+      label: `${item.appName}を開く`,
+      enabled: true,
+      ui: { requireHold: false, dangerous: false, slot },
+      action: { type: 'open_app', app: item.appName }
+    });
+  }
+
+  return {
+    version: 1,
+    commands
+  };
+}
+
+function getAdminState() {
+  loadCommandsIfChanged();
+  const installed = listInstalledApplications();
+  const byName = new Map();
+  installed.forEach((item) => {
+    if (!byName.has(item.appName)) {
+      byName.set(item.appName, item.bundlePath);
+    }
+  });
+  const selectedApps = [];
+  const selectedSlots = Array(MAX_CONTROLLER_COMMANDS).fill(null);
+  const selectedPathSet = new Set();
+  commandCache.list
+    .filter((cmd) => cmd.enabled && cmd.action && cmd.action.type === 'open_app')
+    .forEach((cmd, idx) => {
+      const appName = String(cmd.action.app || '').trim();
+      const pathHit = byName.get(appName);
+      if (!pathHit || selectedPathSet.has(pathHit)) return;
+      selectedPathSet.add(pathHit);
+      selectedApps.push(pathHit);
+      const slot = Number(cmd.ui && cmd.ui.slot);
+      if (Number.isInteger(slot) && slot >= 0 && slot < MAX_CONTROLLER_COMMANDS) {
+        selectedSlots[slot] = pathHit;
+        return;
+      }
+      for (let i = 0; i < MAX_CONTROLLER_COMMANDS; i += 1) {
+        if (!selectedSlots[i]) {
+          selectedSlots[i] = pathHit;
+          break;
+        }
+      }
+    });
+
+  return {
+    pin: activePin,
+    pinSource,
+    deviceName: DEVICE_NAME,
+    pinLength: String(activePin || '').length,
+    pinPolicy: {
+      minDigits: 6,
+      maxDigits: 8,
+      maxAttempts: PIN_MAX_ATTEMPTS,
+      lockSeconds: Math.floor(PIN_LOCK_MS / 1000),
+      sessionHours: Math.floor(SESSION_TOKEN_TTL_MS / (60 * 60 * 1000))
+    },
+    weakPin: String(activePin || '').length < 6,
+    requirePin: REQUIRE_PIN,
+    limits: {
+      itemsPerPage: ITEMS_PER_PAGE,
+      pages: MAX_CONTROLLER_PAGES,
+      maxCommands: MAX_CONTROLLER_COMMANDS
+    },
+    selectedSlots,
+    selectedApps,
+    apps: installed.map((item) => ({
+      path: item.bundlePath,
+      name: item.appName,
+      iconUrl: `/api/admin/icon?path=${encodeURIComponent(item.bundlePath)}`,
+      selected: selectedPathSet.has(item.bundlePath)
+    }))
+  };
 }
 
 async function executeCommandById(commandId) {
@@ -586,6 +1155,146 @@ function serveStaticFile(req, res) {
     return;
   }
 
+  if (url.pathname === '/api/admin/state' && req.method === 'GET') {
+    try {
+      sendJson(res, 200, {
+        ok: true,
+        ...getAdminState()
+      });
+    } catch (err) {
+      sendJson(res, 500, {
+        ok: false,
+        message: err.message
+      });
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/pairing' && req.method === 'GET') {
+    sendJson(res, 200, {
+      ok: true,
+      requirePin: REQUIRE_PIN,
+      pin: activePin,
+      pinSource,
+      deviceName: DEVICE_NAME,
+      pinLength: String(activePin || '').length,
+      pinPolicy: {
+        minDigits: 6,
+        maxDigits: 8,
+        maxAttempts: PIN_MAX_ATTEMPTS,
+        lockSeconds: Math.floor(PIN_LOCK_MS / 1000),
+        sessionHours: Math.floor(SESSION_TOKEN_TTL_MS / (60 * 60 * 1000))
+      },
+      weakPin: String(activePin || '').length < 6
+    });
+    return;
+  }
+
+  if (url.pathname === '/api/runtime' && req.method === 'GET') {
+    sendJson(res, 200, {
+      ok: true,
+      debugUi: DEBUG_UI,
+      env: process.env.NODE_ENV || 'development'
+    });
+    return;
+  }
+
+  if (url.pathname === '/api/admin/pin/rotate' && req.method === 'POST') {
+    try {
+      const nextPin = rotatePin();
+      sendJson(res, 200, {
+        ok: true,
+        pin: nextPin,
+        pinSource,
+        deviceName: DEVICE_NAME,
+        requirePin: REQUIRE_PIN
+      });
+    } catch (err) {
+      sendJson(res, 400, {
+        ok: false,
+        message: err.message
+      });
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/admin/icon' && req.method === 'GET') {
+    try {
+      const appPath = String(url.searchParams.get('path') || '').trim();
+      if (!appPath) {
+        sendJson(res, 400, { ok: false, message: 'path is required' });
+        return;
+      }
+
+      const installed = listInstalledApplications();
+      const found = installed.find((item) => item.bundlePath === appPath);
+      if (!found) {
+        sendJson(res, 404, { ok: false, message: 'app not found' });
+        return;
+      }
+
+      const iconPath = ensureAdminIcon(found.bundlePath);
+      if (!iconPath) {
+        sendFallbackAdminIcon(res, found.appName);
+        return;
+      }
+
+      fs.readFile(iconPath, (err, data) => {
+        if (err) {
+          sendFallbackAdminIcon(res, found.appName);
+          return;
+        }
+        res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' });
+        res.end(data);
+      });
+    } catch (err) {
+      sendJson(res, 500, {
+        ok: false,
+        message: err.message
+      });
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/admin/commands' && req.method === 'POST') {
+    readJsonBody(req)
+      .then((body) => {
+        const selectedApps = Array.isArray(body.selectedApps) ? body.selectedApps : [];
+        const selectedSlots = Array.isArray(body.selectedSlots) ? body.selectedSlots : null;
+        const limitedSelectedApps = selectedApps.slice(0, MAX_CONTROLLER_COMMANDS);
+        const limitedSelectedSlots = selectedSlots ? selectedSlots.slice(0, MAX_CONTROLLER_COMMANDS) : null;
+        const nextConfig = limitedSelectedSlots
+          ? buildCommandsConfigFromSelectedSlots(limitedSelectedSlots)
+          : buildCommandsConfigFromSelectedApps(limitedSelectedApps);
+        fs.writeFileSync(COMMANDS_CONFIG_PATH, JSON.stringify(nextConfig, null, 2), 'utf8');
+        loadCommandsIfChanged(true);
+
+        wss.clients.forEach((client) => {
+          if (client.readyState !== 1) return;
+          client.send(JSON.stringify({
+            type: 'commands_updated',
+            count: nextConfig.commands.length,
+            at: Date.now()
+          }));
+        });
+
+        sendJson(res, 200, {
+          ok: true,
+          selectedApps: limitedSelectedApps,
+          selectedSlots: limitedSelectedSlots,
+          count: nextConfig.commands.length,
+          maxCount: MAX_CONTROLLER_COMMANDS
+        });
+      })
+      .catch((err) => {
+        sendJson(res, 400, {
+          ok: false,
+          message: err.message
+        });
+      });
+    return;
+  }
+
   if (url.pathname === '/api/health') {
     sendJson(res, 200, {
       ok: true,
@@ -622,6 +1331,10 @@ function serveStaticFile(req, res) {
 
 ensureDir(LOG_DIR);
 ensureDir(ICONS_DIR);
+ensureDir(ADMIN_ICONS_DIR);
+const pinState = loadPinState();
+activePin = pinState.pin;
+pinSource = pinState.source;
 loadCommandsIfChanged(true);
 
 const tlsState = resolveTlsState();
@@ -672,7 +1385,8 @@ wss.on('connection', (ws, req) => {
   if (REQUIRE_PIN) {
     ws.send(JSON.stringify({
       type: 'auth_required',
-      message: 'PIN authentication required'
+      message: 'Authentication required',
+      method: 'token_or_pin'
     }));
   }
 
@@ -693,25 +1407,90 @@ wss.on('connection', (ws, req) => {
       return;
     }
 
-    if (payload.type === 'auth') {
-      if (!REQUIRE_PIN) {
-        ws.isAuthed = true;
-        ws.send(JSON.stringify({ type: 'auth_result', ok: true, message: 'Authentication bypassed' }));
-        return;
-      }
-
-      const ok = payload.pin === APP_PIN;
+    if (payload.type === 'auth_token') {
+      const verified = verifySessionToken(payload.token, normalizedIp);
+      const ok = verified.ok === true;
       ws.isAuthed = ok;
       ws.send(JSON.stringify({
         type: 'auth_result',
         ok,
-        message: ok ? 'Authenticated' : 'Invalid PIN'
+        reason: ok ? 'token_ok' : verified.reason,
+        message: ok ? 'Authenticated via token' : 'Token authentication failed'
+      }));
+      appendAudit({
+        kind: 'auth_token_attempt',
+        clientIp: normalizedIp,
+        ok,
+        reason: ok ? 'token_ok' : verified.reason
+      });
+      return;
+    }
+
+    if (payload.type === 'auth') {
+      if (!REQUIRE_PIN) {
+        const issued = issueSessionToken(normalizedIp, ua);
+        ws.isAuthed = true;
+        ws.send(JSON.stringify({
+          type: 'auth_result',
+          ok: true,
+          message: 'Authentication bypassed',
+          token: issued.token,
+          expiresAt: issued.expiresAt
+        }));
+        return;
+      }
+
+      const state = getPinAttemptState(normalizedIp);
+      if (state.lockUntil && Date.now() < state.lockUntil) {
+        const retryAfterSeconds = Math.max(1, Math.ceil((state.lockUntil - Date.now()) / 1000));
+        ws.isAuthed = false;
+        ws.send(JSON.stringify({
+          type: 'auth_result',
+          ok: false,
+          reason: 'locked',
+          message: 'Too many failed attempts',
+          retryAfterSeconds
+        }));
+        appendAudit({
+          kind: 'auth_attempt_blocked',
+          clientIp: normalizedIp,
+          reason: 'locked',
+          retryAfterSeconds
+        });
+        return;
+      }
+
+      const ok = String(payload.pin || '').trim() === activePin;
+      ws.isAuthed = ok;
+      let issued = null;
+      if (ok) {
+        clearPinFailures(normalizedIp);
+        issued = issueSessionToken(normalizedIp, ua);
+      } else {
+        registerPinFailure(normalizedIp);
+      }
+
+      const lockState = getPinAttemptState(normalizedIp);
+      const retryAfterSeconds = lockState.lockUntil && Date.now() < lockState.lockUntil
+        ? Math.max(1, Math.ceil((lockState.lockUntil - Date.now()) / 1000))
+        : 0;
+
+      ws.send(JSON.stringify({
+        type: 'auth_result',
+        ok,
+        reason: ok ? 'pin_ok' : 'invalid_pin',
+        message: ok ? 'Authenticated' : 'Invalid PIN',
+        token: issued ? issued.token : undefined,
+        expiresAt: issued ? issued.expiresAt : undefined,
+        remainingAttempts: ok ? PIN_MAX_ATTEMPTS : Math.max(0, PIN_MAX_ATTEMPTS - Number(lockState.failCount || 0)),
+        retryAfterSeconds
       }));
 
       appendAudit({
         kind: 'auth_attempt',
         clientIp: normalizedIp,
-        ok
+        ok,
+        remainingAttempts: ok ? PIN_MAX_ATTEMPTS : Math.max(0, PIN_MAX_ATTEMPTS - Number(lockState.failCount || 0))
       });
       return;
     }
@@ -790,6 +1569,7 @@ wss.on('connection', (ws, req) => {
 });
 
 const heartbeatTimer = setInterval(() => {
+  cleanupAuthStates();
   wss.clients.forEach((ws) => {
     if (ws.isAlive === false) {
       ws.terminate();
@@ -820,7 +1600,13 @@ server.listen(PORT, '0.0.0.0', () => {
   }
 
   if (REQUIRE_PIN) {
-    console.log(`PIN auth: ON (${process.env.APP_PIN ? 'custom APP_PIN' : `default ${APP_PIN}`})`);
+    console.log(`PIN auth: ON (${pinSource})`);
+    console.log(`Pairing PIN: ${activePin}`);
+    console.log(`Device name: ${DEVICE_NAME}`);
+    console.log(`Auth policy: maxAttempts=${PIN_MAX_ATTEMPTS}, lock=${Math.floor(PIN_LOCK_MS / 1000)}s, tokenTTL=${Math.floor(SESSION_TOKEN_TTL_MS / (60 * 60 * 1000))}h`);
+    if (String(activePin || '').length < 6) {
+      console.warn('[SECURITY] PIN is less than 6 digits. Set 6-8 digits for production.');
+    }
   } else {
     console.log('PIN auth: OFF (REQUIRE_PIN=false)');
   }
@@ -836,6 +1622,7 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log('Access from iPhone using one of these URLs:');
     for (const item of ipList) {
       console.log(`- [${item.interface}] ${webScheme}://${item.address}:${PORT}`);
+      console.log(`  Admin: ${webScheme}://${item.address}:${PORT}/admin.html`);
     }
   }
 

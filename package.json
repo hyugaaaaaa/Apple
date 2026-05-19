@@ -6,7 +6,10 @@
   "scripts": {
     "start": "node server.js",
     "cert:gen": "bash ./scripts/gen-cert.sh",
-    "icon:sync": "node ./scripts/sync-app-icons.js ./commands.json ./public/icons"
+    "icon:sync": "node ./scripts/sync-app-icons.js ./commands.json ./public/icons",
+    "deploy:prepare": "bash ./deploy/setup-cloudflare.sh",
+    "deploy:install": "bash ./deploy/install-launchd.sh",
+    "deploy:status": "bash ./deploy/status.sh"
   },
   "dependencies": {
     "ws": "^8.18.0"

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#251103" />
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f2e4d6" />
+  <title>Left Controller - Auth</title>
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body class="auth-theme">
+  <main class="app-shell">
+    <section id="auth-screen" class="auth-screen" aria-label="pin auth screen">
+      <div class="auth-card">
+        <h1 class="auth-title">Left Controller</h1>
+        <p class="auth-subtitle">PINを入力して接続</p>
+        <p id="pairing-hint" class="auth-screen-status">Mac管理画面に表示されたPINを入力してください。</p>
+        <input id="pin-input" class="pin-input-main" type="password" inputmode="numeric" maxlength="8" placeholder="PIN" />
+        <button id="auth-btn" class="auth-submit" type="button">認証して開始</button>
+        <p id="auth-screen-status" class="auth-screen-status">未認証</p>
+      </div>
+    </section>
+
+    <section class="debug-mini" aria-label="connection status">
+      <div><strong>IP:</strong> <span id="ws-url-mini">-</span></div>
+      <div><strong>WS:</strong> <span id="ws-status-mini">未接続</span></div>
+    </section>
+
+    <details class="debug-drawer">
+      <summary>Debug</summary>
+      <section class="debug" aria-label="debug panel">
+        <div><strong>WS URL:</strong> <span id="ws-url">-</span></div>
+        <div><strong>Status:</strong> <span id="ws-status">未接続</span></div>
+        <div><strong>Last:</strong> <span id="last-event">-</span></div>
+        <button id="clear-cache" class="ghost" type="button">キャッシュクリア</button>
+      </section>
+    </details>
+  </main>
+
+  <script src="/auth.js"></script>
+</body>
+</html>

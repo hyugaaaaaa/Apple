@@ -1,7 +1,13 @@
 'use strict';
 
-const wsProtocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
-const wsUrl = wsProtocol + window.location.hostname + ':8080';
+function resolveWsUrl() {
+  if (window.location.protocol === 'file:') {
+    return 'ws://localhost:8080';
+  }
+  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${wsProtocol}//${window.location.host}`;
+}
+const wsUrl = resolveWsUrl();
 
 const PIN_STORAGE_KEY = 'left_controller_pin';
 const MIN_SEND_INTERVAL_MS = 180;
@@ -11,19 +17,30 @@ const DEFAULT_COMMANDS = [
   { id: 'open_safari', label: 'Safariを開く', ui: { requireHold: false, dangerous: false } },
   { id: 'open_finder', label: 'Finderを開く', ui: { requireHold: false, dangerous: false } },
   { id: 'open_terminal', label: 'Terminalを開く', ui: { requireHold: false, dangerous: false } },
-  { id: 'open_codex', label: 'Codexを開く', ui: { requireHold: false, dangerous: false } }
+  { id: 'open_codex', label: 'Codexを開く', ui: { requireHold: false, dangerous: false } },
+  { id: 'open_music', label: 'Musicを開く', ui: { requireHold: false, dangerous: false } },
+  { id: 'open_mail', label: 'Mailを開く', ui: { requireHold: false, dangerous: false } },
+  { id: 'open_notes', label: 'メモを開く', ui: { requireHold: false, dangerous: false } },
+  { id: 'open_settings', label: '設定を開く', ui: { requireHold: false, dangerous: false } }
 ];
 
 const ICON_MAP = {
   open_safari: { emoji: '🧭', className: 'icon-safari' },
   open_finder: { emoji: '🙂', className: 'icon-finder' },
   open_terminal: { emoji: '⌘', className: 'icon-terminal' },
-  open_codex: { emoji: '⌬', className: 'icon-codex' }
+  open_codex: { emoji: '⌬', className: 'icon-codex' },
+  open_music: { emoji: '🎵', className: 'icon-music' },
+  open_mail: { emoji: '✉️', className: 'icon-mail' },
+  open_notes: { emoji: '📝', className: 'icon-notes' },
+  open_settings: { emoji: '⚙️', className: 'icon-settings' }
 };
 
 const wsUrlEl = document.getElementById('ws-url');
+const wsUrlMiniEl = document.getElementById('ws-url-mini');
 const wsStatusEl = document.getElementById('ws-status');
+const wsStatusMiniEl = document.getElementById('ws-status-mini');
 const authStatusEl = document.getElementById('auth-status');
+const authScreenStatusEl = document.getElementById('auth-screen-status');
 const commandCountEl = document.getElementById('command-count');
 const lastEventEl = document.getElementById('last-event');
 const clearCacheBtn = document.getElementById('clear-cache');
@@ -31,20 +48,19 @@ const pinInput = document.getElementById('pin-input');
 const authBtn = document.getElementById('auth-btn');
 const lockBtn = document.getElementById('lock-btn');
 const gridEl = document.getElementById('command-grid');
-const railDotsEl = document.getElementById('rail-dots');
+const authScreen = document.getElementById('auth-screen');
+const controllerScreen = document.getElementById('controller-screen');
 
-const appsView = document.getElementById('apps-view');
-const aboutView = document.getElementById('about-view');
-const tabApps = document.getElementById('tab-apps');
-const tabAbout = document.getElementById('tab-about');
-const tabClock = document.getElementById('tab-clock');
-
-wsUrlEl.textContent = wsUrl;
+if (wsUrlEl) wsUrlEl.textContent = wsUrl;
+if (wsUrlMiniEl) wsUrlMiniEl.textContent = wsUrl;
 
 let ws = null;
 let reconnectAttempts = 0;
 let reconnectTimer = null;
 let isAuthed = false;
+let pinUnlocked = false;
+let isAuthPending = false;
+let authRetryTimer = null;
 let lastSentAt = 0;
 
 const holdTimers = new Map();
@@ -57,57 +73,99 @@ if (savedPin) {
 setAuth(false, '未認証');
 
 function setStatus(text, okState) {
-  wsStatusEl.textContent = text;
-  wsStatusEl.classList.remove('status-ok', 'status-ng');
-  if (okState === true) wsStatusEl.classList.add('status-ok');
-  if (okState === false) wsStatusEl.classList.add('status-ng');
+  if (wsStatusEl) {
+    wsStatusEl.textContent = text;
+    wsStatusEl.classList.remove('status-ok', 'status-ng');
+    if (okState === true) wsStatusEl.classList.add('status-ok');
+    if (okState === false) wsStatusEl.classList.add('status-ng');
+  }
+  if (wsStatusMiniEl) {
+    wsStatusMiniEl.textContent = text;
+    wsStatusMiniEl.classList.remove('status-ok', 'status-ng');
+    if (okState === true) wsStatusMiniEl.classList.add('status-ok');
+    if (okState === false) wsStatusMiniEl.classList.add('status-ng');
+  }
 }
 
 function setAuth(ok, message) {
   isAuthed = ok;
-  authStatusEl.textContent = message;
-  authStatusEl.classList.remove('status-ok', 'status-ng');
-  authStatusEl.classList.add(ok ? 'status-ok' : 'status-ng');
+  if (ok) {
+    pinUnlocked = true;
+  }
+  if (authStatusEl) {
+    authStatusEl.textContent = message;
+    authStatusEl.classList.remove('status-ok', 'status-ng');
+    authStatusEl.classList.add(ok ? 'status-ok' : 'status-ng');
+  }
+  if (authScreenStatusEl) {
+    authScreenStatusEl.textContent = message;
+    authScreenStatusEl.classList.remove('status-ok', 'status-ng');
+    authScreenStatusEl.classList.add(ok ? 'status-ok' : 'status-ng');
+  }
+  syncScreenVisibility();
 
-  const buttons = gridEl.querySelectorAll('.pad-btn');
-  buttons.forEach((btn) => {
-    btn.disabled = !ok;
-  });
+  syncButtonsEnabled();
 }
 
-function setLastEvent(text) {
-  lastEventEl.textContent = `${new Date().toLocaleTimeString()} - ${text}`;
-}
-
-function setActiveView(view) {
-  const isApps = view === 'apps';
-
-  appsView.classList.toggle('active', isApps);
-  aboutView.classList.toggle('active', !isApps);
-
-  tabApps.classList.toggle('active', isApps);
-  tabAbout.classList.toggle('active', !isApps);
-}
-
-function renderRailDots(commandCount) {
-  railDotsEl.innerHTML = '';
-  const dotCount = Math.max(6, Math.min(12, commandCount));
-
-  for (let i = 0; i < dotCount; i += 1) {
-    const dot = document.createElement('span');
-    dot.className = 'rail-dot';
-    railDotsEl.appendChild(dot);
+function stopAuthRetryLoop() {
+  isAuthPending = false;
+  if (authRetryTimer) {
+    clearInterval(authRetryTimer);
+    authRetryTimer = null;
   }
 }
 
-function autoAuthenticate() {
+function sendAuthRequest() {
   const pin = pinInput.value.trim();
-  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  if (!pin) return false;
+  if (!ws || ws.readyState !== WebSocket.OPEN) return false;
 
   ws.send(JSON.stringify({
     type: 'auth',
     pin
   }));
+  return true;
+}
+
+function beginAuthRetryLoop() {
+  if (authRetryTimer) return;
+  authRetryTimer = setInterval(() => {
+    if (!isAuthPending) return;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    sendAuthRequest();
+  }, 1200);
+}
+
+function syncScreenVisibility() {
+  if (!authScreen || !controllerScreen) return;
+  authScreen.hidden = pinUnlocked;
+  controllerScreen.hidden = !pinUnlocked;
+}
+
+function syncButtonsEnabled() {
+  const buttons = gridEl.querySelectorAll('.pad-btn');
+  buttons.forEach((btn) => {
+    btn.disabled = !(pinUnlocked && isAuthed && ws && ws.readyState === WebSocket.OPEN);
+  });
+}
+
+function setLastEvent(text) {
+  if (lastEventEl) lastEventEl.textContent = `${new Date().toLocaleTimeString()} - ${text}`;
+}
+
+function autoAuthenticate() {
+  const pin = pinInput.value.trim();
+  if (!pin) return;
+
+  isAuthPending = true;
+  beginAuthRetryLoop();
+  sendAuthRequest();
+}
+
+function ensureConnectedNow() {
+  if (!ws || ws.readyState === WebSocket.CLOSED) {
+    connectWebSocket();
+  }
 }
 
 function connectWebSocket() {
@@ -120,7 +178,13 @@ function connectWebSocket() {
     reconnectAttempts = 0;
     setStatus('接続中(OK)', true);
     setLastEvent('WebSocket connected');
-    autoAuthenticate();
+    if ((isAuthPending || pinUnlocked) && pinInput.value.trim()) {
+      autoAuthenticate();
+      setLastEvent('再接続: 自動認証中');
+    } else {
+      setLastEvent('PINを入力して認証してください');
+    }
+    syncButtonsEnabled();
   });
 
   ws.addEventListener('message', (event) => {
@@ -129,15 +193,22 @@ function connectWebSocket() {
 
       if (data.type === 'auth_required') {
         setAuth(false, 'PIN必要');
+        if ((isAuthPending || pinUnlocked) && pinInput.value.trim()) {
+          autoAuthenticate();
+          setLastEvent('PIN required -> 自動再認証');
+          return;
+        }
         setLastEvent(data.message || 'PIN authentication required');
         return;
       }
 
       if (data.type === 'auth_result') {
+        stopAuthRetryLoop();
         if (data.ok) {
           setAuth(true, '認証済み');
           localStorage.setItem(PIN_STORAGE_KEY, pinInput.value.trim());
         } else {
+          pinUnlocked = false;
           setAuth(false, 'PINエラー');
         }
         setLastEvent(data.message || 'Auth updated');
@@ -164,11 +235,23 @@ function connectWebSocket() {
   ws.addEventListener('error', () => {
     setStatus('エラー', false);
     setLastEvent('WebSocket error');
+    syncButtonsEnabled();
   });
 
   ws.addEventListener('close', () => {
     setStatus('切断', false);
-    setAuth(false, '未接続');
+    isAuthed = false;
+    if (authStatusEl) {
+      authStatusEl.textContent = '未接続';
+      authStatusEl.classList.remove('status-ok');
+      authStatusEl.classList.add('status-ng');
+    }
+    if (authScreenStatusEl) {
+      authScreenStatusEl.textContent = pinUnlocked ? '再接続中...' : '未接続';
+      authScreenStatusEl.classList.remove('status-ok');
+      authScreenStatusEl.classList.add('status-ng');
+    }
+    syncButtonsEnabled();
     setLastEvent('WebSocket closed');
 
     reconnectAttempts += 1;
@@ -315,13 +398,13 @@ function renderCommandButtons(commands) {
     gridEl.appendChild(button);
   });
 
-  commandCountEl.textContent = String(commands.length);
-  renderRailDots(commands.length);
+  if (commandCountEl) commandCountEl.textContent = String(commands.length);
 
   const buttons = gridEl.querySelectorAll('.pad-btn');
   buttons.forEach(bindButton);
 
-  setAuth(isAuthed, authStatusEl.textContent || '未認証');
+  setAuth(isAuthed, authStatusEl?.textContent || '未認証');
+  syncButtonsEnabled();
 }
 
 async function loadCommandsFromServer() {
@@ -344,49 +427,59 @@ async function loadCommandsFromServer() {
   }
 }
 
-clearCacheBtn.addEventListener('click', async () => {
-  try {
-    if ('caches' in window) {
-      const keys = await caches.keys();
-      await Promise.all(keys.map((key) => caches.delete(key)));
+if (clearCacheBtn) {
+  clearCacheBtn.addEventListener('click', async () => {
+    try {
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((key) => caches.delete(key)));
+      }
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((r) => r.unregister()));
+      }
+      setLastEvent('キャッシュとService Workerをクリアしました。再読み込みします。');
+      setTimeout(() => window.location.reload(), 500);
+    } catch (err) {
+      setLastEvent(`クリア失敗: ${err.message}`);
     }
-    if ('serviceWorker' in navigator) {
-      const regs = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(regs.map((r) => r.unregister()));
+  });
+}
+
+if (authBtn) {
+  authBtn.addEventListener('click', () => {
+    if (!pinInput.value.trim()) {
+      setLastEvent('PINを入力してください');
+      return;
     }
-    setLastEvent('キャッシュとService Workerをクリアしました。再読み込みします。');
-    setTimeout(() => window.location.reload(), 500);
-  } catch (err) {
-    setLastEvent(`クリア失敗: ${err.message}`);
-  }
-});
 
-authBtn.addEventListener('click', () => {
-  if (!ws || ws.readyState !== WebSocket.OPEN) {
-    setLastEvent('認証失敗: WS未接続');
-    return;
-  }
-  autoAuthenticate();
-  setLastEvent('認証を送信しました');
-});
+    // UX優先: 先にコントローラー画面へ遷移し、認証完了まではボタン無効のまま待機する。
+    pinUnlocked = true;
+    syncScreenVisibility();
+    syncButtonsEnabled();
 
-lockBtn.addEventListener('click', () => {
-  setAuth(false, 'ロック中');
-  setLastEvent('ロックしました');
-});
+    ensureConnectedNow();
+    autoAuthenticate();
+    setLastEvent('認証処理中…（接続が不安定でも自動再試行します）');
+  });
+}
 
-tabApps.addEventListener('click', () => {
-  setActiveView('apps');
-});
+if (lockBtn) {
+  lockBtn.addEventListener('click', () => {
+    stopAuthRetryLoop();
+    pinUnlocked = false;
+    setAuth(false, 'ロック中');
+    setLastEvent('ロックしました');
+  });
+}
 
-tabAbout.addEventListener('click', () => {
-  setActiveView('about');
-});
-
-tabClock.addEventListener('click', () => {
-  setLastEvent(`Clock tap: ${new Date().toLocaleTimeString()}`);
-  setActiveView('about');
-});
+if (pinInput) {
+  pinInput.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    if (authBtn) authBtn.click();
+  });
+}
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
@@ -399,6 +492,6 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-setActiveView('apps');
 loadCommandsFromServer();
 connectWebSocket();
+syncScreenVisibility();

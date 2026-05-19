@@ -1,0 +1,13 @@
+# Example Cloudflare Tunnel config
+# 1) Create tunnel: cloudflared tunnel create left-controller
+# 2) Route DNS: cloudflared tunnel route dns left-controller controller.example.com
+# 3) Place credentials file path below and run:
+#    cloudflared tunnel --config ./deploy/cloudflared-config.example.yml run
+
+tunnel: left-controller
+credentials-file: /Users/your-user/.cloudflared/<TUNNEL-UUID>.json
+
+ingress:
+  - hostname: controller.example.com
+    service: http://localhost:8080
+  - service: http_status:404

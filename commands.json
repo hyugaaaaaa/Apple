@@ -2,32 +2,116 @@
   "version": 1,
   "commands": [
     {
-      "id": "open_safari",
-      "label": "Safariを開く",
+      "id": "open_antigravity",
+      "label": "Antigravityを開く",
       "enabled": true,
-      "ui": { "requireHold": false, "dangerous": false },
-      "action": { "type": "open_app", "app": "Safari" }
+      "ui": {
+        "requireHold": false,
+        "dangerous": false,
+        "slot": 0
+      },
+      "action": {
+        "type": "open_app",
+        "app": "Antigravity"
+      }
+    },
+    {
+      "id": "open_discord",
+      "label": "Discordを開く",
+      "enabled": true,
+      "ui": {
+        "requireHold": false,
+        "dangerous": false,
+        "slot": 1
+      },
+      "action": {
+        "type": "open_app",
+        "app": "Discord"
+      }
     },
     {
       "id": "open_finder",
       "label": "Finderを開く",
       "enabled": true,
-      "ui": { "requireHold": false, "dangerous": false },
-      "action": { "type": "open_app", "app": "Finder" }
+      "ui": {
+        "requireHold": false,
+        "dangerous": false,
+        "slot": 2
+      },
+      "action": {
+        "type": "open_app",
+        "app": "Finder"
+      }
     },
     {
-      "id": "open_terminal",
-      "label": "Terminalを開く",
+      "id": "open_google_chrome",
+      "label": "Google Chromeを開く",
       "enabled": true,
-      "ui": { "requireHold": false, "dangerous": false },
-      "action": { "type": "open_app", "app": "Terminal" }
+      "ui": {
+        "requireHold": false,
+        "dangerous": false,
+        "slot": 3
+      },
+      "action": {
+        "type": "open_app",
+        "app": "Google Chrome"
+      }
     },
     {
-      "id": "open_codex",
-      "label": "Codexを開く",
+      "id": "open_line",
+      "label": "LINEを開く",
       "enabled": true,
-      "ui": { "requireHold": false, "dangerous": false },
-      "action": { "type": "open_app", "app": "Codex" }
+      "ui": {
+        "requireHold": false,
+        "dangerous": false,
+        "slot": 4
+      },
+      "action": {
+        "type": "open_app",
+        "app": "LINE"
+      }
+    },
+    {
+      "id": "open_microsoft_teams",
+      "label": "Microsoft Teamsを開く",
+      "enabled": true,
+      "ui": {
+        "requireHold": false,
+        "dangerous": false,
+        "slot": 5
+      },
+      "action": {
+        "type": "open_app",
+        "app": "Microsoft Teams"
+      }
+    },
+    {
+      "id": "open_music",
+      "label": "Musicを開く",
+      "enabled": true,
+      "ui": {
+        "requireHold": false,
+        "dangerous": false,
+        "slot": 6
+      },
+      "action": {
+        "type": "open_app",
+        "app": "Music"
+      }
+    },
+    {
+      "id": "open_apps",
+      "label": "Appsを開く",
+      "enabled": true,
+      "ui": {
+        "requireHold": false,
+        "dangerous": false,
+        "slot": 8
+      },
+      "action": {
+        "type": "open_app",
+        "app": "Apps"
+      }
     }
   ]
 }
