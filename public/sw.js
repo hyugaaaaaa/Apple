@@ -1,10 +1,11 @@
 'use strict';
 
-const CACHE_VERSION = 'v38';
+const CACHE_VERSION = 'v39';
 const CACHE_NAME = `left-controller-cache-${CACHE_VERSION}`;
 const APP_SHELL = [
   '/',
   '/index.html',
+  '/lp-onboarding.html',
   '/auth.html',
   '/controller.html',
   '/admin.html',
@@ -58,8 +59,8 @@ self.addEventListener('fetch', (event) => {
       if (cached) return cached;
 
       if (req.mode === 'navigate') {
-        const authCache = await caches.match('/auth.html');
-        if (authCache) return authCache;
+        const lpCache = await caches.match('/lp-onboarding.html');
+        if (lpCache) return lpCache;
       }
 
       return new Response('Offline and no cache available', { status: 503 });
