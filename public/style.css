@@ -488,6 +488,9 @@ body.controller-theme {
   --controller-icon-size: calc(var(--controller-card-size) * 0.9);
   --controller-col-gap: 18px;
   --controller-row-gap: 14px;
+  --controller-frame-width: 390px;
+  --controller-frame-height: 844px;
+  --controller-frame-scale: 1;
 }
 
 body.controller-theme .app-shell::before {
@@ -647,14 +650,27 @@ body.controller-theme .app-grid {
 body.controller-theme .app-shell {
   padding-top: max(8px, env(safe-area-inset-top));
   padding-bottom: calc(10px + env(safe-area-inset-bottom));
-  overflow-x: hidden;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  overflow: hidden;
 }
 
 /* Keep portrait-like layout even in landscape: only icon orientation changes */
+body.controller-theme .controller-screen {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
 body.controller-theme .apps-view {
+  flex: 0 0 auto;
+  width: var(--controller-frame-width);
+  height: var(--controller-frame-height);
+  transform: scale(var(--controller-frame-scale));
+  transform-origin: center center;
+  will-change: transform;
   justify-content: center;
+  align-items: center;
+  gap: 0;
 }
 
 body.controller-theme .controller-stack {
@@ -665,9 +681,16 @@ body.controller-theme .controller-stack {
   );
   margin: 0 auto;
   gap: 10px;
+  grid-template-rows: auto auto;
+  align-content: center;
+  justify-content: center;
 }
 
 body.controller-theme .app-grid {
+  width: 100%;
+  height: auto;
+  min-height: calc((var(--controller-card-size) * 4) + (var(--controller-row-gap) * 3));
+  max-height: calc((var(--controller-card-size) * 4) + (var(--controller-row-gap) * 3));
   grid-template-columns: repeat(2, var(--controller-card-size));
   grid-template-rows: repeat(4, var(--controller-card-size));
   justify-content: center;

@@ -628,18 +628,50 @@ function getStableShortSidePx() {
   return Math.min(...candidates);
 }
 
+function getPortraitFrameBase() {
+  const screenW = Number(window.screen?.width || 0);
+  const screenH = Number(window.screen?.height || 0);
+  if (Number.isFinite(screenW) && screenW > 0 && Number.isFinite(screenH) && screenH > 0) {
+    return {
+      width: Math.min(screenW, screenH),
+      height: Math.max(screenW, screenH)
+    };
+  }
+
+  const vw = Number(window.innerWidth || 390);
+  const vh = Number(window.innerHeight || 844);
+  return {
+    width: Math.min(vw, vh),
+    height: Math.max(vw, vh)
+  };
+}
+
 function applyControllerSizing() {
-  const shortSide = getStableShortSidePx();
-  const card = Math.max(128, Math.min(186, Math.round(shortSide * 0.42)));
-  const rowGap = Math.max(10, Math.min(18, Math.round(card * 0.09)));
-  const colGap = Math.max(14, Math.min(24, Math.round(card * 0.11)));
+  const frameBase = getPortraitFrameBase();
+  const frameW = frameBase.width;
+  const frameH = frameBase.height;
+
+  const colGap = Math.max(14, Math.min(24, Math.round(frameW * 0.046)));
+  const rowGap = Math.max(10, Math.min(18, Math.round(frameH * 0.016)));
+
+  const cardByWidth = Math.floor((frameW - 24 - colGap) / 2);
+  const cardByHeight = Math.floor((frameH - 60 - 36 - (rowGap * 3)) / 4);
+  const card = Math.max(112, Math.min(186, Math.min(cardByWidth, cardByHeight)));
   const icon = Math.max(112, Math.min(176, Math.round(card * 0.9)));
+
+  const viewportW = Number(window.innerWidth || frameW);
+  const viewportH = Number(window.innerHeight || frameH);
+  const scale = Math.min(viewportW / frameW, viewportH / frameH);
+  const safeScale = Math.max(0.64, Math.min(1, scale));
 
   const rootStyle = document.documentElement.style;
   rootStyle.setProperty('--controller-card-size', `${card}px`);
   rootStyle.setProperty('--controller-icon-size', `${icon}px`);
   rootStyle.setProperty('--controller-row-gap', `${rowGap}px`);
   rootStyle.setProperty('--controller-col-gap', `${colGap}px`);
+  rootStyle.setProperty('--controller-frame-width', `${frameW}px`);
+  rootStyle.setProperty('--controller-frame-height', `${frameH}px`);
+  rootStyle.setProperty('--controller-frame-scale', `${safeScale}`);
 }
 
 function applyIconOrientation() {
