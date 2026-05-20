@@ -675,10 +675,7 @@ body.controller-theme .apps-view {
 
 body.controller-theme .controller-stack {
   flex: 0 0 auto;
-  width: min(
-    calc((var(--controller-card-size) * 2) + var(--controller-col-gap)),
-    calc(100vw - 24px)
-  );
+  width: calc((var(--controller-card-size) * 2) + var(--controller-col-gap));
   margin: 0 auto;
   gap: 10px;
   grid-template-rows: auto auto;
