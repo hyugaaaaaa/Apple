@@ -605,7 +605,9 @@ function resolveIconRotationDeg() {
   }
 
   const normalized = ((angle % 360) + 360) % 360;
-  if (normalized === 90 || normalized === 180 || normalized === 270) return normalized;
+  // Keep layout portrait-like always. Rotate icons only in landscape.
+  if (normalized === 90) return 90;
+  if (normalized === 270) return -90;
   return 0;
 }
 
