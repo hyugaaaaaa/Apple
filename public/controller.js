@@ -646,6 +646,32 @@ function getPortraitFrameBase() {
   };
 }
 
+function getEffectiveViewportSize() {
+  const widthCandidates = [];
+  const heightCandidates = [];
+
+  if (window.visualViewport) {
+    const vw = Number(window.visualViewport.width || 0);
+    const vh = Number(window.visualViewport.height || 0);
+    if (Number.isFinite(vw) && vw > 0) widthCandidates.push(vw);
+    if (Number.isFinite(vh) && vh > 0) heightCandidates.push(vh);
+  }
+
+  const iw = Number(window.innerWidth || 0);
+  const ih = Number(window.innerHeight || 0);
+  if (Number.isFinite(iw) && iw > 0) widthCandidates.push(iw);
+  if (Number.isFinite(ih) && ih > 0) heightCandidates.push(ih);
+
+  const cw = Number(document.documentElement?.clientWidth || 0);
+  const ch = Number(document.documentElement?.clientHeight || 0);
+  if (Number.isFinite(cw) && cw > 0) widthCandidates.push(cw);
+  if (Number.isFinite(ch) && ch > 0) heightCandidates.push(ch);
+
+  const width = widthCandidates.length ? Math.min(...widthCandidates) : 390;
+  const height = heightCandidates.length ? Math.min(...heightCandidates) : 844;
+  return { width, height };
+}
+
 function applyControllerSizing() {
   const frameBase = getPortraitFrameBase();
   const frameW = frameBase.width;
@@ -659,8 +685,9 @@ function applyControllerSizing() {
   const card = Math.max(112, Math.min(186, Math.min(cardByWidth, cardByHeight)));
   const icon = Math.max(112, Math.min(176, Math.round(card * 0.9)));
 
-  const viewportW = Number(window.innerWidth || frameW);
-  const viewportH = Number(window.innerHeight || frameH);
+  const viewport = getEffectiveViewportSize();
+  const viewportW = viewport.width;
+  const viewportH = viewport.height;
   const scale = Math.min(viewportW / frameW, viewportH / frameH);
   const safeScale = Math.max(0.64, Math.min(1, scale));
 
@@ -746,6 +773,10 @@ window.addEventListener('orientationchange', applyIconOrientation);
 window.addEventListener('resize', applyIconOrientation);
 window.addEventListener('orientationchange', applyControllerSizing);
 window.addEventListener('resize', applyControllerSizing);
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', applyControllerSizing);
+  window.visualViewport.addEventListener('scroll', applyControllerSizing);
+}
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
