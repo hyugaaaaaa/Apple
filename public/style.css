@@ -491,7 +491,6 @@ body.controller-theme {
   --controller-frame-width: 390px;
   --controller-frame-height: 844px;
   --controller-frame-scale: 1;
-  --controller-center-shift: 0px;
 }
 
 body.controller-theme .app-shell::before {
@@ -660,14 +659,18 @@ body.controller-theme .controller-screen {
   display: grid;
   place-items: start center;
   overflow: hidden;
+  position: relative;
 }
 
 body.controller-theme .apps-view {
   flex: 0 0 auto;
+  position: absolute;
+  left: 50%;
+  top: 0;
   width: var(--controller-frame-width);
   height: var(--controller-frame-height);
-  transform: translateX(var(--controller-center-shift)) scale(var(--controller-frame-scale));
-  transform-origin: center center;
+  transform: translateX(-50%) scale(var(--controller-frame-scale));
+  transform-origin: top center;
   will-change: transform;
   justify-content: center;
   align-items: flex-start;

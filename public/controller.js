@@ -57,7 +57,6 @@ const pageNextBtn = document.getElementById('page-next');
 const pageDotsEl = document.getElementById('page-dots');
 const pageNavEl = document.querySelector('.controller-page-nav');
 const appShellEl = document.querySelector('.app-shell');
-const appsViewEl = document.querySelector('.apps-view');
 const debugMiniEl = document.querySelector('.debug-mini');
 const debugDrawerEl = document.querySelector('.debug-drawer');
 
@@ -711,27 +710,6 @@ function applyControllerSizing() {
   rootStyle.setProperty('--controller-frame-width', `${frameW}px`);
   rootStyle.setProperty('--controller-frame-height', `${frameH}px`);
   rootStyle.setProperty('--controller-frame-scale', `${safeScale}`);
-
-  applyControllerCentering();
-}
-
-function applyControllerCentering() {
-  if (!appsViewEl || !appShellEl) return;
-
-  const rootStyle = document.documentElement.style;
-  rootStyle.setProperty('--controller-center-shift', '0px');
-
-  window.requestAnimationFrame(() => {
-    const shellRect = appShellEl.getBoundingClientRect();
-    const viewRect = appsViewEl.getBoundingClientRect();
-    if (!shellRect.width || !viewRect.width) return;
-
-    const shellCenterX = shellRect.left + (shellRect.width / 2);
-    const viewCenterX = viewRect.left + (viewRect.width / 2);
-    const deltaX = shellCenterX - viewCenterX;
-    const shift = Math.abs(deltaX) < 0.5 ? 0 : deltaX;
-    rootStyle.setProperty('--controller-center-shift', `${shift}px`);
-  });
 }
 
 function applyIconOrientation() {
