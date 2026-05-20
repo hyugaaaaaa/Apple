@@ -656,25 +656,24 @@ body.controller-theme .app-shell {
 /* Keep portrait-like layout even in landscape: only icon orientation changes */
 body.controller-theme .controller-screen {
   height: 100%;
-  display: grid;
-  place-items: start center;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
   overflow: hidden;
-  position: relative;
 }
 
 body.controller-theme .apps-view {
   flex: 0 0 auto;
-  position: absolute;
-  left: 50%;
-  top: 0;
+  position: relative;
   width: var(--controller-frame-width);
   height: var(--controller-frame-height);
-  transform: translateX(-50%) scale(var(--controller-frame-scale));
+  transform: scale(var(--controller-frame-scale));
   transform-origin: top center;
   will-change: transform;
   justify-content: center;
   align-items: flex-start;
   gap: 0;
+  margin: 0 auto;
 }
 
 body.controller-theme .controller-stack {
