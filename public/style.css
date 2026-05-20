@@ -1,5 +1,6 @@
 :root {
   color-scheme: dark light;
+  --icon-rotation: 0deg;
   --bg-1: #140903;
   --bg-2: #2a1003;
   --bg-accent-1: #8b3000;
@@ -161,8 +162,8 @@ input {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-rows: 1fr auto;
-  gap: 10px;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 6px;
 }
 
 .app-grid {
@@ -171,9 +172,10 @@ input {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-template-rows: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  gap: clamp(8px, 1.1dvh, 14px) clamp(10px, 2.6vw, 14px);
   align-items: center;
-  align-content: center;
+  align-content: stretch;
+  justify-items: center;
 }
 
 .controller-page-nav {
@@ -183,6 +185,10 @@ input {
   gap: 12px;
   min-height: 36px;
   padding-bottom: 2px;
+}
+
+.controller-page-nav.is-hidden {
+  display: flex;
 }
 
 .controller-page-dots {
@@ -229,17 +235,25 @@ input {
 }
 
 .pad-btn {
+  all: unset;
+  -webkit-appearance: none;
   appearance: none;
-  border: 0;
-  border-radius: 22px;
-  background: transparent;
-  box-shadow: none;
+  border: 0 !important;
+  border-radius: 0;
+  background: transparent !important;
+  box-shadow: none !important;
   padding: 0;
-  min-height: 0;
+  margin: 0;
   color: inherit;
+  min-height: 0;
   transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
   display: grid;
   place-items: center;
+  justify-self: center;
+  align-self: center;
+  cursor: pointer;
+  touch-action: manipulation;
+  outline: none;
 }
 
 .pad-btn:active {
@@ -261,6 +275,8 @@ input {
 .tile {
   display: grid;
   place-items: center;
+  width: 100%;
+  height: 100%;
 }
 
 .pad-placeholder {
@@ -286,13 +302,31 @@ input {
     0 10px 18px rgba(0, 0, 0, 0.34);
 }
 
+.fallback-mark {
+  font-size: 56px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1;
+  text-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
+}
+
 .app-icon.has-real {
   background: transparent;
   box-shadow:
     0 16px 28px rgba(0, 0, 0, 0.38),
     0 4px 8px rgba(0, 0, 0, 0.22);
   border-radius: 26px;
+  width: clamp(72px, min(31vw, 12.5svh), 136px);
   transform: translateZ(0);
+}
+
+.app-icon.has-real .fallback-mark {
+  display: none;
+}
+
+.app-icon.has-real > .fallback-mark,
+.app-icon.has-real > .real-icon {
+  grid-area: 1 / 1;
 }
 
 .app-icon.has-real::before {
@@ -450,28 +484,44 @@ input {
 body.controller-theme {
   background: #000 !important;
   color: #fff;
+  --controller-card-size: 164px;
+  --controller-icon-size: calc(var(--controller-card-size) * 0.9);
+  --controller-col-gap: 18px;
+  --controller-row-gap: 14px;
 }
 
 body.controller-theme .app-shell::before {
   background: none;
 }
 
+body.controller-theme .app-shell::after {
+  display: none;
+}
+
 body.controller-theme .page-dot {
-  background: rgba(255, 255, 255, 0.35);
+  width: 9px;
+  height: 9px;
+  background: rgba(255, 232, 204, 0.38);
+  border: 1px solid rgba(255, 196, 132, 0.28);
+  opacity: 0.7;
 }
 
 body.controller-theme .page-dot.empty {
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 232, 204, 0.2);
+  opacity: 0.45;
 }
 
 body.controller-theme .page-dot.active {
-  background: rgba(255, 255, 255, 0.95);
+  width: 11px;
+  height: 11px;
+  border-radius: 999px;
+  background: rgba(255, 239, 218, 0.95);
+  border-color: rgba(255, 212, 159, 0.58);
+  opacity: 1;
 }
 
 body.controller-theme .page-arrow {
-  border-color: rgba(255, 255, 255, 0.25);
-  background: rgba(255, 255, 255, 0.06);
-  color: #fff;
+  display: none;
 }
 
 body.controller-theme .page-arrow:disabled {
@@ -499,6 +549,182 @@ body.controller-theme .ghost {
   border-color: rgba(255, 255, 255, 0.3);
   background: rgba(255, 255, 255, 0.08);
   color: #fff;
+}
+
+body.controller-theme .pad-btn {
+  all: unset;
+  -webkit-appearance: none;
+  appearance: none;
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--controller-card-size);
+  height: var(--controller-card-size);
+  aspect-ratio: auto;
+  border-radius: 34px;
+  background: linear-gradient(165deg, rgba(113, 117, 126, 0.45), rgba(71, 75, 82, 0.62)) !important;
+  border: 1.5px solid rgba(170, 176, 186, 0.85) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(210, 215, 223, 0.26),
+    inset 0 -10px 22px rgba(0, 0, 0, 0.22),
+    0 10px 28px rgba(0, 0, 0, 0.26) !important;
+  transition: transform 170ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 170ms cubic-bezier(0.22, 1, 0.36, 1);
+  overflow: hidden;
+  box-sizing: border-box;
+  outline: none;
+}
+
+body.controller-theme .pad-btn:focus,
+body.controller-theme .pad-btn:focus-visible {
+  outline: none;
+}
+
+body.controller-theme .pad-btn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 34px;
+  background: linear-gradient(180deg, rgba(198, 205, 214, 0.14), rgba(198, 205, 214, 0) 34%);
+  z-index: 0;
+  pointer-events: none;
+}
+
+body.controller-theme .pad-btn:active {
+  transform: scale(0.972) translateY(1px);
+  box-shadow:
+    inset 0 1px 0 rgba(210, 215, 223, 0.22),
+    inset 0 -8px 18px rgba(0, 0, 0, 0.22),
+    0 6px 16px rgba(0, 0, 0, 0.22) !important;
+}
+
+body.controller-theme .app-icon.has-real {
+  position: relative;
+  z-index: 1;
+  background: transparent !important;
+  box-shadow: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  width: var(--controller-icon-size);
+  height: var(--controller-icon-size);
+  aspect-ratio: auto;
+  transform: translateZ(0);
+  transition: transform 140ms cubic-bezier(0.22, 1, 0.36, 1);
+  overflow: hidden;
+}
+
+body.controller-theme .app-icon.has-real::before,
+body.controller-theme .app-icon.has-real::after {
+  display: none !important;
+  content: none !important;
+}
+
+body.controller-theme .app-icon.has-real .real-icon {
+  display: block;
+  width: 100%;
+  height: 100%;
+  margin: 0 auto;
+  align-self: center;
+  justify-self: center;
+  object-fit: contain;
+  transform: rotate(var(--icon-rotation, 0deg));
+  transform-origin: center center;
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  filter:
+    drop-shadow(0 1px 0 rgba(255, 255, 255, 0.18))
+    drop-shadow(0 7px 12px rgba(0, 0, 0, 0.32)) !important;
+}
+
+body.controller-theme .pad-btn:active .app-icon.has-real {
+  transform: translateY(1px) scale(0.988);
+}
+
+body.controller-theme .app-grid {
+  gap: var(--controller-row-gap) var(--controller-col-gap);
+  align-content: stretch;
+  padding-top: 0;
+}
+
+body.controller-theme .app-shell {
+  padding-top: max(8px, env(safe-area-inset-top));
+  padding-bottom: calc(10px + env(safe-area-inset-bottom));
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Keep portrait-like layout even in landscape: only icon orientation changes */
+body.controller-theme .apps-view {
+  justify-content: center;
+}
+
+body.controller-theme .controller-stack {
+  flex: 0 0 auto;
+  width: min(
+    calc((var(--controller-card-size) * 2) + var(--controller-col-gap)),
+    calc(100vw - 24px)
+  );
+  margin: 0 auto;
+  gap: 10px;
+}
+
+body.controller-theme .app-grid {
+  grid-template-columns: repeat(2, var(--controller-card-size));
+  grid-template-rows: repeat(4, var(--controller-card-size));
+  justify-content: center;
+  justify-items: center;
+  align-items: center;
+  align-content: start;
+  gap: var(--controller-row-gap) var(--controller-col-gap);
+}
+
+body.controller-theme .controller-page-nav {
+  position: fixed;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 8;
+  min-height: auto;
+  padding: 0;
+  justify-content: center;
+}
+
+body.controller-theme .controller-page-dots {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+
+body.controller-theme .pad-placeholder {
+  width: var(--controller-card-size);
+  height: var(--controller-card-size);
+  aspect-ratio: auto;
+  border-radius: 34px;
+  background: linear-gradient(165deg, rgba(113, 117, 126, 0.45), rgba(71, 75, 82, 0.62));
+  border: 1.5px solid rgba(170, 176, 186, 0.72);
+  box-shadow:
+    inset 0 1px 0 rgba(210, 215, 223, 0.2),
+    inset 0 -10px 22px rgba(0, 0, 0, 0.2);
+  box-sizing: border-box;
+}
+
+body.controller-theme .pad-btn:nth-child(1) { animation: iconIntro 320ms 20ms both cubic-bezier(0.2, 0.95, 0.2, 1); }
+body.controller-theme .pad-btn:nth-child(2) { animation: iconIntro 320ms 40ms both cubic-bezier(0.2, 0.95, 0.2, 1); }
+body.controller-theme .pad-btn:nth-child(3) { animation: iconIntro 320ms 60ms both cubic-bezier(0.2, 0.95, 0.2, 1); }
+body.controller-theme .pad-btn:nth-child(4) { animation: iconIntro 320ms 80ms both cubic-bezier(0.2, 0.95, 0.2, 1); }
+body.controller-theme .pad-btn:nth-child(5) { animation: iconIntro 320ms 100ms both cubic-bezier(0.2, 0.95, 0.2, 1); }
+body.controller-theme .pad-btn:nth-child(6) { animation: iconIntro 320ms 120ms both cubic-bezier(0.2, 0.95, 0.2, 1); }
+body.controller-theme .pad-btn:nth-child(7) { animation: iconIntro 320ms 140ms both cubic-bezier(0.2, 0.95, 0.2, 1); }
+body.controller-theme .pad-btn:nth-child(8) { animation: iconIntro 320ms 160ms both cubic-bezier(0.2, 0.95, 0.2, 1); }
+
+@keyframes iconIntro {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 /* LPに合わせた認証画面専用の黒配色 */

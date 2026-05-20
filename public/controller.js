@@ -3,6 +3,7 @@
 const UNLOCK_KEY = 'left_controller_unlocked';
 const TOKEN_STORAGE_KEY = 'left_controller_token';
 const TOKEN_EXPIRES_KEY = 'left_controller_token_expires';
+const DEVICE_ID_STORAGE_KEY = 'left_controller_device_id';
 const MIN_SEND_INTERVAL_MS = 180;
 const HOLD_MS = 450;
 const ITEMS_PER_PAGE = 8;
@@ -54,6 +55,7 @@ const gridEl = document.getElementById('command-grid');
 const pagePrevBtn = document.getElementById('page-prev');
 const pageNextBtn = document.getElementById('page-next');
 const pageDotsEl = document.getElementById('page-dots');
+const pageNavEl = document.querySelector('.controller-page-nav');
 const debugMiniEl = document.querySelector('.debug-mini');
 const debugDrawerEl = document.querySelector('.debug-drawer');
 
@@ -78,6 +80,22 @@ let commandsLoading = false;
 let commandsReloadPending = false;
 
 const holdTimers = new Map();
+const ICON_CACHE_BUST = Date.now();
+
+function getOrCreateDeviceId() {
+  const current = localStorage.getItem(DEVICE_ID_STORAGE_KEY) || '';
+  if (current) return current;
+  let next = '';
+  if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+    next = window.crypto.randomUUID();
+  } else {
+    next = `dev-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+  localStorage.setItem(DEVICE_ID_STORAGE_KEY, next);
+  return next;
+}
+
+const deviceId = getOrCreateDeviceId();
 
 function getStoredToken() {
   const token = sessionStorage.getItem(TOKEN_STORAGE_KEY) || '';
@@ -152,7 +170,7 @@ function sendAuth() {
   if (!ws || ws.readyState !== WebSocket.OPEN) return false;
   const token = getStoredToken();
   if (!token) return false;
-  ws.send(JSON.stringify({ type: 'auth_token', token }));
+  ws.send(JSON.stringify({ type: 'auth_token', token, deviceId }));
   return true;
 }
 
@@ -348,12 +366,37 @@ function bindButton(btn) {
   btn.addEventListener('click', (event) => event.preventDefault());
 }
 
+function escapeHtml(text) {
+  return String(text || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function buildFallbackLabel(command) {
+  const label = String(command?.label || '')
+    .replace(/を開く$/, '')
+    .trim();
+  const first = label ? Array.from(label)[0] : '';
+  return escapeHtml(first || '•');
+}
+
+function withIconCacheBust(iconUrl) {
+  const raw = String(iconUrl || '').trim();
+  if (!raw) return '';
+  const sep = raw.includes('?') ? '&' : '?';
+  return `${raw}${sep}cb=${ICON_CACHE_BUST}`;
+}
+
 function buildTile(command) {
   const icon = ICON_MAP[command.id] || { emoji: '⬢', className: 'icon-codex' };
-  const iconUrl = command.ui?.iconUrl || '';
+  const iconUrl = withIconCacheBust(command.ui?.iconUrl || '');
+  const fallbackLabel = buildFallbackLabel(command);
   const iconInner = iconUrl
-    ? `<img class=\"real-icon\" src=\"${iconUrl}\" alt=\"\" />`
-    : icon.emoji;
+    ? `<span class="fallback-mark">${fallbackLabel}</span><img class="real-icon" src="${iconUrl}" alt="" loading="eager" decoding="async" onerror="this.style.display='none'; this.parentElement.classList.remove('has-real');" />`
+    : `<span class="fallback-mark">${escapeHtml(icon.emoji)}</span>`;
   const hasRealClass = iconUrl ? 'has-real' : '';
 
   return `
@@ -393,6 +436,14 @@ function buildPagedCommands(commands) {
 
 function renderPageNav() {
   if (!pageDotsEl) return;
+
+  const hasNextPages = Array.isArray(pagedCommands)
+    ? pagedCommands.slice(1).some((page) => Array.isArray(page) && page.some(Boolean))
+    : false;
+  if (pageNavEl) {
+    pageNavEl.classList.toggle('is-hidden', !hasNextPages);
+  }
+
   pageDotsEl.innerHTML = '';
 
   for (let i = 0; i < MAX_PAGES; i += 1) {
@@ -541,9 +592,85 @@ if (pageNextBtn) {
   });
 }
 
+function resolveIconRotationDeg() {
+  let angle = 0;
+
+  if (window.screen && window.screen.orientation && Number.isFinite(window.screen.orientation.angle)) {
+    angle = Number(window.screen.orientation.angle);
+  } else if (Number.isFinite(window.orientation)) {
+    angle = Number(window.orientation);
+  } else if (window.matchMedia && window.matchMedia('(orientation: landscape)').matches) {
+    angle = 90;
+  }
+
+  const normalized = ((angle % 360) + 360) % 360;
+  if (normalized === 90 || normalized === 180 || normalized === 270) return normalized;
+  return 0;
+}
+
+function getStableShortSidePx() {
+  const candidates = [];
+  if (window.screen) {
+    if (Number.isFinite(window.screen.width) && window.screen.width > 0) {
+      candidates.push(Number(window.screen.width));
+    }
+    if (Number.isFinite(window.screen.height) && window.screen.height > 0) {
+      candidates.push(Number(window.screen.height));
+    }
+  }
+  if (Number.isFinite(window.innerWidth) && window.innerWidth > 0) {
+    candidates.push(Number(window.innerWidth));
+  }
+  if (Number.isFinite(window.innerHeight) && window.innerHeight > 0) {
+    candidates.push(Number(window.innerHeight));
+  }
+  if (candidates.length === 0) return 390;
+  return Math.min(...candidates);
+}
+
+function applyControllerSizing() {
+  const shortSide = getStableShortSidePx();
+  const card = Math.max(128, Math.min(186, Math.round(shortSide * 0.42)));
+  const rowGap = Math.max(10, Math.min(18, Math.round(card * 0.09)));
+  const colGap = Math.max(14, Math.min(24, Math.round(card * 0.11)));
+  const icon = Math.max(112, Math.min(176, Math.round(card * 0.9)));
+
+  const rootStyle = document.documentElement.style;
+  rootStyle.setProperty('--controller-card-size', `${card}px`);
+  rootStyle.setProperty('--controller-icon-size', `${icon}px`);
+  rootStyle.setProperty('--controller-row-gap', `${rowGap}px`);
+  rootStyle.setProperty('--controller-col-gap', `${colGap}px`);
+}
+
+function applyIconOrientation() {
+  const deg = resolveIconRotationDeg();
+  document.documentElement.style.setProperty('--icon-rotation', `${deg}deg`);
+}
+
 if (gridEl) {
   let startX = 0;
   let startY = 0;
+  let wheelAccum = 0;
+  let wheelResetTimer = null;
+
+  const applySwipe = (dx, dy) => {
+    const absX = Math.abs(dx);
+    const absY = Math.abs(dy);
+    const threshold = 48;
+
+    // Vertical scroll gesture: move page (down=next / up=prev)
+    if (absY >= threshold && absY > absX) {
+      if (dy > 0) setPage(currentPage + 1);
+      if (dy < 0) setPage(currentPage - 1);
+      return;
+    }
+
+    // Horizontal swipe gesture: move page (left=next / right=prev)
+    if (absX >= threshold && absX >= absY) {
+      if (dx < 0) setPage(currentPage + 1);
+      if (dx > 0) setPage(currentPage - 1);
+    }
+  };
 
   gridEl.addEventListener('touchstart', (event) => {
     const touch = event.changedTouches && event.changedTouches[0];
@@ -558,12 +685,35 @@ if (gridEl) {
 
     const dx = touch.clientX - startX;
     const dy = touch.clientY - startY;
-    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy)) return;
-
-    if (dx < 0) setPage(currentPage + 1);
-    if (dx > 0) setPage(currentPage - 1);
+    applySwipe(dx, dy);
   }, { passive: true });
+
+  gridEl.addEventListener('wheel', (event) => {
+    event.preventDefault();
+    const delta = Math.abs(event.deltaY) >= Math.abs(event.deltaX) ? event.deltaY : event.deltaX;
+    wheelAccum += delta;
+
+    if (wheelResetTimer) clearTimeout(wheelResetTimer);
+    wheelResetTimer = setTimeout(() => {
+      wheelAccum = 0;
+      wheelResetTimer = null;
+    }, 180);
+
+    const wheelThreshold = 64;
+    if (Math.abs(wheelAccum) < wheelThreshold) return;
+    if (wheelAccum > 0) setPage(currentPage + 1);
+    if (wheelAccum < 0) setPage(currentPage - 1);
+    wheelAccum = 0;
+  }, { passive: false });
 }
+
+if (window.screen && window.screen.orientation && typeof window.screen.orientation.addEventListener === 'function') {
+  window.screen.orientation.addEventListener('change', applyIconOrientation);
+}
+window.addEventListener('orientationchange', applyIconOrientation);
+window.addEventListener('resize', applyIconOrientation);
+window.addEventListener('orientationchange', applyControllerSizing);
+window.addEventListener('resize', applyControllerSizing);
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
@@ -592,5 +742,7 @@ document.addEventListener('visibilitychange', () => {
 
 setAuth(false, '未認証');
 applyRuntimeUiConfig();
+applyControllerSizing();
+applyIconOrientation();
 loadCommandsFromServer();
 connectWebSocket();
