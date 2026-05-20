@@ -188,7 +188,7 @@ input {
 }
 
 .controller-page-nav.is-hidden {
-  display: flex;
+  display: none;
 }
 
 .controller-page-dots {
@@ -657,7 +657,7 @@ body.controller-theme .app-shell {
 body.controller-theme .controller-screen {
   height: 100%;
   display: grid;
-  place-items: center;
+  place-items: start center;
   overflow: hidden;
 }
 
@@ -669,7 +669,7 @@ body.controller-theme .apps-view {
   transform-origin: center center;
   will-change: transform;
   justify-content: center;
-  align-items: center;
+  align-items: flex-start;
   gap: 0;
 }
 
@@ -682,7 +682,7 @@ body.controller-theme .controller-stack {
   margin: 0 auto;
   gap: 10px;
   grid-template-rows: auto auto;
-  align-content: center;
+  align-content: start;
   justify-content: center;
 }
 
@@ -701,14 +701,7 @@ body.controller-theme .app-grid {
 }
 
 body.controller-theme .controller-page-nav {
-  position: fixed;
-  left: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 8;
-  min-height: auto;
-  padding: 0;
-  justify-content: center;
+  display: none;
 }
 
 body.controller-theme .controller-page-dots {

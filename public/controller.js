@@ -56,6 +56,7 @@ const pagePrevBtn = document.getElementById('page-prev');
 const pageNextBtn = document.getElementById('page-next');
 const pageDotsEl = document.getElementById('page-dots');
 const pageNavEl = document.querySelector('.controller-page-nav');
+const appShellEl = document.querySelector('.app-shell');
 const debugMiniEl = document.querySelector('.debug-mini');
 const debugDrawerEl = document.querySelector('.debug-drawer');
 
@@ -669,6 +670,16 @@ function getEffectiveViewportSize() {
 
   const width = widthCandidates.length ? Math.min(...widthCandidates) : 390;
   const height = heightCandidates.length ? Math.min(...heightCandidates) : 844;
+
+  if (appShellEl) {
+    const shellW = Number(appShellEl.clientWidth || 0);
+    const shellH = Number(appShellEl.clientHeight || 0);
+    return {
+      width: Number.isFinite(shellW) && shellW > 0 ? Math.min(width, shellW) : width,
+      height: Number.isFinite(shellH) && shellH > 0 ? Math.min(height, shellH) : height
+    };
+  }
+
   return { width, height };
 }
 
@@ -689,7 +700,7 @@ function applyControllerSizing() {
   const viewportW = viewport.width;
   const viewportH = viewport.height;
   const scale = Math.min(viewportW / frameW, viewportH / frameH);
-  const safeScale = Math.max(0.64, Math.min(1, scale));
+  const safeScale = Math.max(0.5, Math.min(1, scale));
 
   const rootStyle = document.documentElement.style;
   rootStyle.setProperty('--controller-card-size', `${card}px`);
