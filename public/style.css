@@ -491,6 +491,7 @@ body.controller-theme {
   --controller-frame-width: 390px;
   --controller-frame-height: 844px;
   --controller-frame-scale: 1;
+  --controller-center-shift: 0px;
 }
 
 body.controller-theme .app-shell::before {
@@ -665,7 +666,7 @@ body.controller-theme .apps-view {
   flex: 0 0 auto;
   width: var(--controller-frame-width);
   height: var(--controller-frame-height);
-  transform: scale(var(--controller-frame-scale));
+  transform: translateX(var(--controller-center-shift)) scale(var(--controller-frame-scale));
   transform-origin: center center;
   will-change: transform;
   justify-content: center;
