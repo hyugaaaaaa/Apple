@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="ja">
 <head>
+  <script>if (sessionStorage.getItem('left_controller_unlocked') !== '1') location.replace('/auth.html');</script>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -9,8 +10,10 @@
   <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f2e4d6" />
   <title>Left Controller</title>
   <link rel="manifest" href="/manifest.json" />
-  <link rel="icon" href="/favicon.ico" sizes="any" />
-  <link rel="stylesheet" href="/style.css?v=20260520-ctrl35" />
+  <link rel="icon" href="/favicon.png" type="image/png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="stylesheet" href="/style.css?v=20260526-ctrl52" />
+  <link rel="stylesheet" href="/controller-layout.css?v=20260526-ctrl52" />
 </head>
 <body class="controller-theme">
   <main class="app-shell">
@@ -48,6 +51,6 @@
     </details>
   </main>
 
-  <script src="/controller.js?v=20260520-ctrl35"></script>
+  <script src="/controller.js?v=20260526-ctrl52"></script>
 </body>
 </html>

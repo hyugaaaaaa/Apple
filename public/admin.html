@@ -7,6 +7,26 @@
   <title>Left Controller 管理画面</title>
   <script>
     (function () {
+      var onboardingKey = 'left_controller_onboarding_done_v1';
+      var params = new URLSearchParams(window.location.search || '');
+      var skipOnboarding = params.get('skipOnboarding') === '1';
+      var fromLp = params.get('fromLp') === '1';
+
+      if (fromLp) {
+        localStorage.setItem(onboardingKey, '1');
+        params.delete('fromLp');
+        var cleaned = params.toString();
+        var cleanUrl = window.location.pathname + (cleaned ? ('?' + cleaned) : '') + window.location.hash;
+        window.history.replaceState(null, '', cleanUrl);
+      }
+
+      var onboardingDone = localStorage.getItem(onboardingKey) === '1';
+      if (!onboardingDone && !skipOnboarding) {
+        var next = window.location.pathname + window.location.search + window.location.hash;
+        window.location.replace('/lp-onboarding.html?next=' + encodeURIComponent(next));
+        return;
+      }
+
       var host = (window.location.hostname || '').toLowerCase();
       var path = (window.location.pathname || '').toLowerCase();
       var isWorkersHost = host.endsWith('.workers.dev');
@@ -14,12 +34,24 @@
       if (!isWorkersHost || !isAdminPath) return;
 
       var storageKey = 'left_controller_tunnel_admin_url';
-      var params = new URLSearchParams(window.location.search || '');
       var queryCandidate = params.get('tunnelAdminUrl') || params.get('tunnel') || '';
+      var resetTunnel = params.get('resetTunnel');
+
+      if (resetTunnel === '1') {
+        localStorage.removeItem(storageKey);
+      }
+
+      function isPlaceholderHost(hostname) {
+        var h = String(hostname || '').toLowerCase();
+        return h.includes('xxxxx') || h.includes('example.com') || h.includes('your-domain');
+      }
 
       if (queryCandidate) {
         try {
           var queryUrl = new URL(queryCandidate);
+          if (isPlaceholderHost(queryUrl.hostname)) {
+            throw new Error('placeholder host');
+          }
           localStorage.setItem(storageKey, queryUrl.href);
         } catch (_err) {
           // ignore invalid query URL
@@ -36,6 +68,9 @@
         }
         try {
           var manualUrl = new URL(manual);
+          if (isPlaceholderHost(manualUrl.hostname)) {
+            throw new Error('placeholder host');
+          }
           localStorage.setItem(storageKey, manualUrl.href);
           configured = manualUrl.href;
         } catch (_manualErr) {
@@ -46,6 +81,11 @@
 
       try {
         var target = new URL(configured);
+        if (isPlaceholderHost(target.hostname)) {
+          localStorage.removeItem(storageKey);
+          window.__LEFT_CONTROLLER_REDIRECT_REQUIRED__ = true;
+          return;
+        }
         if (!target.pathname || target.pathname === '/') {
           target.pathname = '/admin.html';
         }
@@ -57,7 +97,8 @@
       }
     })();
   </script>
-  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" href="/favicon.png" type="image/png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <link rel="stylesheet" href="/style.css" />
   <style>
     body {
@@ -332,6 +373,39 @@
       min-height: 1.2em;
     }
 
+    .device-pin-list {
+      margin-top: 14px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .device-pin-item {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 12px;
+      padding: 8px 10px;
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .device-pin-name {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.86);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .device-pin-code {
+      font-size: 20px;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+      color: #f5eee6;
+      font-variant-numeric: tabular-nums;
+    }
+
     .modal {
       position: fixed;
       inset: 0;
@@ -476,6 +550,7 @@
               <button id="copy-pin-btn" class="head-btn" type="button">PINをコピー</button>
               <button id="rotate-pin-btn" class="head-btn" type="button">PIN再発行</button>
             </div>
+            <div id="device-pin-list" class="device-pin-list"></div>
             <div id="save-status" class="status-line">-</div>
           </div>
         </section>
@@ -498,6 +573,18 @@
     </div>
   </div>
 
-  <script src="/admin.js"></script>
+  <div id="admin-login-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:9999" hidden>
+    <div style="background:#1a1d24;border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:32px 28px;width:min(320px,90vw);display:flex;flex-direction:column;gap:16px">
+      <h2 style="margin:0;font-size:18px;font-weight:700;color:#f4f6fb">管理者ログイン</h2>
+      <p style="margin:0;font-size:13px;color:#9aa0b2">サーバー起動時にコンソールに表示されたPINを入力してください。</p>
+      <input id="admin-login-pin" type="password" inputmode="numeric" placeholder="PIN" autocomplete="off"
+        style="padding:10px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:#11141a;color:#f4f6fb;font-size:20px;letter-spacing:.15em;text-align:center;width:100%;box-sizing:border-box" />
+      <p id="admin-login-error" style="margin:0;font-size:13px;color:#ff6b6b;min-height:1em"></p>
+      <button id="admin-login-submit" type="button"
+        style="padding:10px;border-radius:8px;border:none;background:#3a7bd5;color:#fff;font-size:15px;font-weight:600;cursor:pointer">ログイン</button>
+    </div>
+  </div>
+
+  <script src="/admin.js?v=20260520-macpin2"></script>
 </body>
 </html>

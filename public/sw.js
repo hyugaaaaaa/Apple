@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_VERSION = 'v39';
+const CACHE_VERSION = 'v56';
 const CACHE_NAME = `left-controller-cache-${CACHE_VERSION}`;
 const APP_SHELL = [
   '/',
@@ -10,11 +10,16 @@ const APP_SHELL = [
   '/controller.html',
   '/admin.html',
   '/style.css',
+  '/controller-layout.css',
+  '/controller-orientation.css',
   '/auth.js',
   '/controller.js',
   '/admin.js',
   '/manifest.json',
-  '/favicon.ico'
+  '/favicon.png',
+  '/apple-touch-icon.png',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png'
 ];
 
 self.addEventListener('install', (event) => {

@@ -519,6 +519,13 @@ function setCommands(nextCommands) {
   setPage(currentPage);
 }
 
+function getSessionToken() {
+  const token = sessionStorage.getItem(TOKEN_STORAGE_KEY) || '';
+  const expiresAt = Number(sessionStorage.getItem(TOKEN_EXPIRES_KEY) || '0');
+  if (!token || (expiresAt && Date.now() >= expiresAt)) return '';
+  return token;
+}
+
 async function loadCommandsFromServer() {
   if (commandsLoading) {
     commandsReloadPending = true;
@@ -527,7 +534,9 @@ async function loadCommandsFromServer() {
   commandsLoading = true;
 
   try {
-    const res = await fetch('/api/commands', { cache: 'no-store' });
+    const token = getSessionToken();
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const res = await fetch('/api/commands', { cache: 'no-store', headers });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     if (!data.ok || !Array.isArray(data.commands)) throw new Error('Invalid command response');
@@ -593,132 +602,6 @@ if (pageNextBtn) {
   });
 }
 
-function resolveIconRotationDeg() {
-  let angle = 0;
-
-  if (window.screen && window.screen.orientation && Number.isFinite(window.screen.orientation.angle)) {
-    angle = Number(window.screen.orientation.angle);
-  } else if (Number.isFinite(window.orientation)) {
-    angle = Number(window.orientation);
-  } else if (window.matchMedia && window.matchMedia('(orientation: landscape)').matches) {
-    angle = 90;
-  }
-
-  const normalized = ((angle % 360) + 360) % 360;
-  // Keep layout portrait-like always. Rotate icons only in landscape.
-  if (normalized === 90) return 90;
-  if (normalized === 270) return -90;
-  return 0;
-}
-
-function getStableShortSidePx() {
-  const candidates = [];
-  if (window.screen) {
-    if (Number.isFinite(window.screen.width) && window.screen.width > 0) {
-      candidates.push(Number(window.screen.width));
-    }
-    if (Number.isFinite(window.screen.height) && window.screen.height > 0) {
-      candidates.push(Number(window.screen.height));
-    }
-  }
-  if (Number.isFinite(window.innerWidth) && window.innerWidth > 0) {
-    candidates.push(Number(window.innerWidth));
-  }
-  if (Number.isFinite(window.innerHeight) && window.innerHeight > 0) {
-    candidates.push(Number(window.innerHeight));
-  }
-  if (candidates.length === 0) return 390;
-  return Math.min(...candidates);
-}
-
-function getPortraitFrameBase() {
-  const screenW = Number(window.screen?.width || 0);
-  const screenH = Number(window.screen?.height || 0);
-  if (Number.isFinite(screenW) && screenW > 0 && Number.isFinite(screenH) && screenH > 0) {
-    return {
-      width: Math.min(screenW, screenH),
-      height: Math.max(screenW, screenH)
-    };
-  }
-
-  const vw = Number(window.innerWidth || 390);
-  const vh = Number(window.innerHeight || 844);
-  return {
-    width: Math.min(vw, vh),
-    height: Math.max(vw, vh)
-  };
-}
-
-function getEffectiveViewportSize() {
-  const widthCandidates = [];
-  const heightCandidates = [];
-
-  if (window.visualViewport) {
-    const vw = Number(window.visualViewport.width || 0);
-    const vh = Number(window.visualViewport.height || 0);
-    if (Number.isFinite(vw) && vw > 0) widthCandidates.push(vw);
-    if (Number.isFinite(vh) && vh > 0) heightCandidates.push(vh);
-  }
-
-  const iw = Number(window.innerWidth || 0);
-  const ih = Number(window.innerHeight || 0);
-  if (Number.isFinite(iw) && iw > 0) widthCandidates.push(iw);
-  if (Number.isFinite(ih) && ih > 0) heightCandidates.push(ih);
-
-  const cw = Number(document.documentElement?.clientWidth || 0);
-  const ch = Number(document.documentElement?.clientHeight || 0);
-  if (Number.isFinite(cw) && cw > 0) widthCandidates.push(cw);
-  if (Number.isFinite(ch) && ch > 0) heightCandidates.push(ch);
-
-  const width = widthCandidates.length ? Math.min(...widthCandidates) : 390;
-  const height = heightCandidates.length ? Math.min(...heightCandidates) : 844;
-
-  if (appShellEl) {
-    const shellW = Number(appShellEl.clientWidth || 0);
-    const shellH = Number(appShellEl.clientHeight || 0);
-    return {
-      width: Number.isFinite(shellW) && shellW > 0 ? Math.min(width, shellW) : width,
-      height: Number.isFinite(shellH) && shellH > 0 ? Math.min(height, shellH) : height
-    };
-  }
-
-  return { width, height };
-}
-
-function applyControllerSizing() {
-  const frameBase = getPortraitFrameBase();
-  const frameW = frameBase.width;
-  const frameH = frameBase.height;
-
-  const colGap = Math.max(14, Math.min(24, Math.round(frameW * 0.046)));
-  const rowGap = Math.max(10, Math.min(18, Math.round(frameH * 0.016)));
-
-  const cardByWidth = Math.floor((frameW - 24 - colGap) / 2);
-  const cardByHeight = Math.floor((frameH - 60 - 36 - (rowGap * 3)) / 4);
-  const card = Math.max(112, Math.min(186, Math.min(cardByWidth, cardByHeight)));
-  const icon = Math.max(112, Math.min(176, Math.round(card * 0.9)));
-
-  const viewport = getEffectiveViewportSize();
-  const viewportW = viewport.width;
-  const viewportH = viewport.height;
-  const scale = Math.min(viewportW / frameW, viewportH / frameH);
-  const safeScale = Math.max(0.5, Math.min(1, scale));
-
-  const rootStyle = document.documentElement.style;
-  rootStyle.setProperty('--controller-card-size', `${card}px`);
-  rootStyle.setProperty('--controller-icon-size', `${icon}px`);
-  rootStyle.setProperty('--controller-row-gap', `${rowGap}px`);
-  rootStyle.setProperty('--controller-col-gap', `${colGap}px`);
-  rootStyle.setProperty('--controller-frame-width', `${frameW}px`);
-  rootStyle.setProperty('--controller-frame-height', `${frameH}px`);
-  rootStyle.setProperty('--controller-frame-scale', `${safeScale}`);
-}
-
-function applyIconOrientation() {
-  const deg = resolveIconRotationDeg();
-  document.documentElement.style.setProperty('--icon-rotation', `${deg}deg`);
-}
-
 if (gridEl) {
   let startX = 0;
   let startY = 0;
@@ -779,19 +662,6 @@ if (gridEl) {
   }, { passive: false });
 }
 
-if (window.screen && window.screen.orientation && typeof window.screen.orientation.addEventListener === 'function') {
-  window.screen.orientation.addEventListener('change', applyIconOrientation);
-}
-window.addEventListener('orientationchange', applyIconOrientation);
-window.addEventListener('resize', applyIconOrientation);
-window.addEventListener('orientationchange', applyControllerSizing);
-window.addEventListener('resize', applyControllerSizing);
-window.addEventListener('pageshow', applyControllerSizing);
-if (window.visualViewport) {
-  window.visualViewport.addEventListener('resize', applyControllerSizing);
-  window.visualViewport.addEventListener('scroll', applyControllerSizing);
-}
-
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
@@ -819,7 +689,5 @@ document.addEventListener('visibilitychange', () => {
 
 setAuth(false, '未認証');
 applyRuntimeUiConfig();
-applyControllerSizing();
-applyIconOrientation();
 loadCommandsFromServer();
 connectWebSocket();

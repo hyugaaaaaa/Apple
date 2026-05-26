@@ -1,0 +1,290 @@
+/* Controller layout (single source of truth) */
+body.controller-theme {
+  background: #000 !important;
+  color: #fff !important;
+  --controller-cols: 2;
+  --controller-rows: 4;
+  --controller-col-gap: 24px;
+  --controller-row-gap: 26px;
+  --controller-card-size: min(
+    calc((100vw - env(safe-area-inset-left) - env(safe-area-inset-right) - 28px - (var(--controller-col-gap) * (var(--controller-cols) - 1))) / var(--controller-cols)),
+    calc((100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 22px - (var(--controller-row-gap) * (var(--controller-rows) - 1))) / var(--controller-rows))
+  );
+  --controller-icon-size: calc(var(--controller-card-size) * 0.92);
+  --controller-grid-width: calc((var(--controller-card-size) * var(--controller-cols)) + (var(--controller-col-gap) * (var(--controller-cols) - 1)));
+  --controller-grid-height: calc((var(--controller-card-size) * var(--controller-rows)) + (var(--controller-row-gap) * (var(--controller-rows) - 1)));
+}
+
+@media (min-aspect-ratio: 1/1) {
+  body.controller-theme {
+    --controller-cols: 4;
+    --controller-rows: 2;
+    --controller-col-gap: 18px;
+    --controller-row-gap: 20px;
+  }
+}
+
+body.controller-theme .app-shell {
+  padding-top: max(10px, env(safe-area-inset-top));
+  padding-left: max(14px, env(safe-area-inset-left));
+  padding-right: max(14px, env(safe-area-inset-right));
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+  overflow: hidden;
+}
+
+body.controller-theme .app-shell::before {
+  background: none;
+}
+
+body.controller-theme .controller-screen {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+
+body.controller-theme .apps-view-anchor {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+body.controller-theme .apps-view {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+
+body.controller-theme .controller-stack {
+  width: var(--controller-grid-width);
+  height: var(--controller-grid-height);
+  display: grid;
+  grid-template-rows: 1fr;
+  justify-content: center;
+  align-content: center;
+  gap: 0;
+}
+
+body.controller-theme .app-grid {
+  width: var(--controller-grid-width);
+  height: var(--controller-grid-height);
+  min-height: var(--controller-grid-height);
+  max-height: var(--controller-grid-height);
+  display: grid;
+  grid-template-columns: repeat(var(--controller-cols), var(--controller-card-size));
+  grid-template-rows: repeat(var(--controller-rows), var(--controller-card-size));
+  justify-content: center;
+  justify-items: center;
+  align-items: center;
+  align-content: center;
+  gap: var(--controller-row-gap) var(--controller-col-gap);
+}
+
+body.controller-theme .pad-btn,
+body.controller-theme .pad-placeholder {
+  width: var(--controller-card-size);
+  height: var(--controller-card-size);
+  box-sizing: border-box;
+  border-radius: 0;
+}
+
+body.controller-theme .pad-btn {
+  all: unset;
+  -webkit-appearance: none;
+  appearance: none;
+  display: grid;
+  place-items: center;
+  width: var(--controller-card-size);
+  height: var(--controller-card-size);
+  padding: 0;
+  margin: 0;
+  background: transparent !important;
+  border: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
+  color: inherit;
+  cursor: pointer;
+  min-height: 0;
+  touch-action: manipulation;
+  overflow: visible;
+  transition: transform 120ms ease, opacity 120ms ease;
+}
+
+body.controller-theme .pad-btn::before,
+body.controller-theme .pad-btn::after {
+  content: none !important;
+  display: none !important;
+}
+
+body.controller-theme .pad-btn:active {
+  transform: scale(0.98);
+}
+
+body.controller-theme .pad-btn:disabled {
+  opacity: 0.43;
+}
+
+body.controller-theme .pad-btn.holding {
+  box-shadow: 0 0 0 3px rgba(255, 195, 96, 0.75) !important;
+}
+
+body.controller-theme .pad-placeholder {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  display: grid;
+  place-items: center;
+}
+
+body.controller-theme .pad-placeholder::before {
+  content: '';
+  display: block;
+  width: var(--controller-icon-size);
+  height: var(--controller-icon-size);
+  border-radius: 22%;
+  box-shadow: 0 0 0 1.5px rgba(180, 180, 180, 0.38);
+}
+
+body.controller-theme .tile {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+}
+
+body.controller-theme .app-icon {
+  width: var(--controller-icon-size);
+  height: var(--controller-icon-size);
+  aspect-ratio: 1 / 1;
+  border-radius: 30px;
+  display: grid;
+  place-items: center;
+  position: relative;
+  overflow: visible;
+  font-size: 54px;
+  color: #fff;
+  text-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  background: linear-gradient(145deg, #f8f8f8 0%, #d8dde6 100%);
+  box-shadow:
+    0 0 0 1.5px rgba(180, 180, 180, 0.38),
+    inset 0 1px 1px rgba(255, 255, 255, 0.75),
+    inset 0 -2px 7px rgba(0, 0, 0, 0.15),
+    0 10px 18px rgba(0, 0, 0, 0.34);
+}
+
+body.controller-theme .fallback-mark {
+  font-size: 56px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1;
+  text-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
+}
+
+body.controller-theme .app-icon.has-real {
+  width: var(--controller-icon-size);
+  height: var(--controller-icon-size);
+  background: transparent !important;
+  box-shadow: 0 0 0 1.5px rgba(180, 180, 180, 0.38) !important;
+  border: 0 !important;
+  border-radius: 22% !important;
+  overflow: hidden;
+}
+
+body.controller-theme .app-icon.has-real .fallback-mark {
+  display: none;
+}
+
+body.controller-theme .app-icon.has-real > .fallback-mark,
+body.controller-theme .app-icon.has-real > .real-icon {
+  grid-area: 1 / 1;
+}
+
+body.controller-theme .app-icon.has-real::before,
+body.controller-theme .app-icon.has-real::after {
+  display: none !important;
+  content: none !important;
+}
+
+body.controller-theme .app-icon.has-real .real-icon,
+body.controller-theme .real-icon {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: auto;
+  transform-origin: center center;
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.18)) drop-shadow(0 7px 12px rgba(0, 0, 0, 0.32));
+}
+
+body.controller-theme .pad-btn:active .app-icon.has-real {
+  transform: translateY(1px) scale(0.985);
+}
+
+body.controller-theme .icon-safari { background: linear-gradient(145deg, #4bb5ff 0%, #0a4bfd 100%); }
+body.controller-theme .icon-finder { background: linear-gradient(145deg, #38ceff 0%, #0373fa 100%); }
+body.controller-theme .icon-terminal { background: linear-gradient(145deg, #7f8dff 0%, #4452e2 100%); }
+body.controller-theme .icon-codex { background: linear-gradient(145deg, #1f2530 0%, #080a10 100%); }
+body.controller-theme .icon-accessibility { background: linear-gradient(145deg, #79b0ff 0%, #3556df 100%); }
+body.controller-theme .icon-mission { background: linear-gradient(145deg, #6b8dff 0%, #3f54d9 100%); }
+body.controller-theme .icon-snap-left { background: linear-gradient(145deg, #7f57ff 0%, #4133b8 100%); }
+body.controller-theme .icon-snap-right { background: linear-gradient(145deg, #5b8fff 0%, #3560d8 100%); }
+body.controller-theme .icon-hide { background: linear-gradient(145deg, #fe5a6f 0%, #d9113f 100%); }
+body.controller-theme .icon-music { background: linear-gradient(145deg, #ff6b90 0%, #e70a43 100%); }
+body.controller-theme .icon-mail { background: linear-gradient(145deg, #5ec8ff 0%, #1769ff 100%); }
+body.controller-theme .icon-notes { background: linear-gradient(145deg, #ffd96a 0%, #f8b819 100%); }
+body.controller-theme .icon-settings { background: linear-gradient(145deg, #88a1b8 0%, #4f6279 100%); }
+
+body.controller-theme .tile-label {
+  display: none;
+}
+
+body.controller-theme .controller-page-nav {
+  display: none;
+}
+
+body.controller-theme .controller-page-dots {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  position: fixed;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 8;
+}
+
+body.controller-theme .page-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: rgba(255, 232, 204, 0.38);
+  border: 1px solid rgba(255, 196, 132, 0.28);
+  opacity: 0.7;
+}
+
+body.controller-theme .page-dot.empty {
+  background: rgba(255, 232, 204, 0.2);
+  opacity: 0.45;
+}
+
+body.controller-theme .page-dot.active {
+  width: 11px;
+  height: 11px;
+  background: rgba(255, 239, 218, 0.95);
+  border-color: rgba(255, 212, 159, 0.58);
+  opacity: 1;
+}
+
+body.controller-theme .page-arrow {
+  display: none;
+}
+

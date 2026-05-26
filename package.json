@@ -5,6 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "relay:broker": "node relay/broker.js",
+    "relay:agent": "node relay/mac-agent.js",
     "cert:gen": "bash ./scripts/gen-cert.sh",
     "icon:sync": "node ./scripts/sync-app-icons.js ./commands.json ./public/icons",
     "deploy:prepare": "bash ./deploy/setup-cloudflare.sh",

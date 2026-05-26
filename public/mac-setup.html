@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mac Setup — Left Controller</title>
+  <style>
+    :root {
+      --bg: #000;
+      --fg: #fff;
+      --fg-muted: rgba(255,255,255,.68);
+      --border: rgba(255,255,255,.16);
+      --input-bg: rgba(255,255,255,.06);
+      --code-bg: #0d0d0d;
+      --ease: cubic-bezier(.25,1,.5,1);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: "SF Pro Display","Hiragino Sans","Noto Sans JP",sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .step {
+      display: none;
+      min-height: 100dvh;
+      flex-direction: column;
+      padding: 52px 24px 40px;
+      max-width: 560px;
+      margin: 0 auto;
+    }
+    .step.active { display: flex; }
+
+    .badge {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,.36);
+      margin-bottom: 36px;
+    }
+
+    .body { flex: 1; }
+
+    h1 {
+      font-size: clamp(28px, 5.5vw, 44px);
+      font-weight: 700;
+      line-height: 1.22;
+      letter-spacing: -.01em;
+      white-space: pre-line;
+      margin-bottom: 14px;
+    }
+
+    .lead {
+      font-size: clamp(14px, 2.4vw, 16px);
+      line-height: 1.8;
+      color: var(--fg-muted);
+      margin-bottom: 36px;
+    }
+
+    .form { display: flex; flex-direction: column; gap: 20px; margin-bottom: 28px; }
+
+    .field label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,.46);
+      margin-bottom: 8px;
+    }
+    .field input {
+      width: 100%;
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--fg);
+      font-size: 15px;
+      font-family: inherit;
+      padding: 13px 16px;
+      outline: none;
+      transition: border-color 180ms;
+      -webkit-appearance: none;
+    }
+    .field input:focus { border-color: rgba(255,255,255,.44); }
+    .field input::placeholder { color: rgba(255,255,255,.24); }
+    .field .hint { margin-top: 6px; font-size: 12px; color: rgba(255,255,255,.32); }
+
+    .err-text { font-size: 13px; color: #f87171; margin-bottom: 4px; min-height: 1.4em; }
+
+    .slabel {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,.4);
+      margin-bottom: 10px;
+    }
+
+    .cb {
+      position: relative;
+      background: var(--code-bg);
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
+    .cb pre {
+      padding: 16px 56px 16px 16px;
+      font-size: 13px;
+      font-family: "SF Mono","Menlo","Monaco",monospace;
+      line-height: 1.6;
+      overflow-x: auto;
+      white-space: pre;
+      color: rgba(255,255,255,.84);
+    }
+    .cb-copy {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(255,255,255,.1);
+      border: 1px solid rgba(255,255,255,.16);
+      border-radius: 6px;
+      color: var(--fg);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .04em;
+      padding: 4px 10px;
+      cursor: pointer;
+      transition: background 160ms;
+      font-family: inherit;
+    }
+    .cb-copy:hover { background: rgba(255,255,255,.18); }
+    .cb-copy.ok { color: #4ade80; border-color: #4ade80; }
+
+    .status-box {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 20px;
+      margin-bottom: 24px;
+    }
+    .dot {
+      flex-shrink: 0;
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: rgba(255,200,0,.8);
+    }
+    .dot.pulsing { animation: pulse 1.2s ease-in-out infinite; }
+    .dot.ok  { background: #4ade80; animation: none; }
+    .dot.err { background: #f87171; animation: none; }
+    @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.3} }
+    .status-msg strong { display: block; font-size: 15px; }
+    .status-msg span { font-size: 13px; color: var(--fg-muted); }
+
+    .btn {
+      width: 100%;
+      appearance: none;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: rgba(255,255,255,.08);
+      color: var(--fg);
+      font-size: 17px;
+      font-weight: 600;
+      font-family: inherit;
+      min-height: 54px;
+      padding: 12px 24px;
+      cursor: pointer;
+      transition: background 160ms, transform 160ms, opacity 160ms;
+      text-align: center;
+      display: block;
+    }
+    .btn:active { transform: scale(.985); }
+    .btn.primary { background: var(--fg); color: var(--bg); border-color: transparent; }
+    .btn.primary:active { background: rgba(255,255,255,.88); }
+    .btn:disabled { opacity: .4; pointer-events: none; }
+    .btn + .btn { margin-top: 10px; }
+
+    .footer { padding-top: 20px; }
+  </style>
+</head>
+<body>
+<main>
+
+  <!-- Step 1 -->
+  <section class="step active" id="s1">
+    <p class="badge">Step 1 / 2 — 認証情報を入力</p>
+    <div class="body">
+      <h1>Macエージェントを
+セットアップ</h1>
+      <p class="lead">AGENT_TOKENを入力するだけでセットアップスクリプトを自動生成します。リポジトリのクローンは不要です。</p>
+      <div class="form">
+        <div class="field">
+          <label>AGENT_TOKEN</label>
+          <input id="f-token" type="password"
+            placeholder="管理者から受け取ったトークン"
+            autocorrect="off" autocapitalize="off" spellcheck="false" />
+          <p class="hint">管理者から共有されたトークンを入力してください</p>
+        </div>
+        <div class="field">
+          <label>Macの名前（任意）</label>
+          <input id="f-name" type="text"
+            placeholder="例: 田中のMacBook Pro"
+            autocorrect="off" spellcheck="false" />
+          <p class="hint">省略すると自動生成されます</p>
+        </div>
+      </div>
+      <p class="err-text" id="form-err"></p>
+    </div>
+    <div class="footer">
+      <button class="btn primary" onclick="downloadScript()">セットアップスクリプトをダウンロード</button>
+    </div>
+  </section>
+
+  <!-- Step 2 -->
+  <section class="step" id="s2">
+    <p class="badge">Step 2 / 2 — ターミナルで実行</p>
+    <div class="body">
+      <h1>ターミナルで
+実行してください</h1>
+      <p class="lead">ダウンロードしたスクリプトをターミナルにドラッグ＆ドロップして Enter を押してください。Macエージェントが自動でセットアップされ、Mac起動時に自動起動します。</p>
+
+      <p class="slabel">ターミナルで実行</p>
+      <div class="cb">
+        <pre id="run-cmd">bash ~/Downloads/leftcontroller-setup.sh</pre>
+        <button class="cb-copy" onclick="copyEl('run-cmd',this)">コピー</button>
+      </div>
+
+      <p class="slabel">接続状況</p>
+      <div class="status-box">
+        <div class="dot pulsing" id="stat-dot"></div>
+        <div class="status-msg">
+          <strong id="stat-title">接続待機中...</strong>
+          <span id="stat-desc">スクリプトを実行すると自動で検出されます</span>
+        </div>
+      </div>
+    </div>
+    <div class="footer">
+      <button class="btn primary" id="admin-btn" onclick="goAdmin()" disabled>管理画面へ進む</button>
+      <button class="btn" onclick="startCheck()">もう一度確認</button>
+      <button class="btn" onclick="go(1)">戻る</button>
+    </div>
+  </section>
+
+</main>
+<script>
+(() => {
+  let deviceId = '';
+  let checkTimer = null;
+  let checkCount = 0;
+
+  function go(n) {
+    document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+    const el = document.getElementById('s' + n);
+    if (el) { el.classList.add('active'); scrollTo(0, 0); }
+  }
+  window.go = go;
+
+  function toDeviceId(name) {
+    const s = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 32);
+    return s.length >= 2 ? s : 'mac-' + Math.random().toString(36).slice(2, 8);
+  }
+
+  function escSh(s) {
+    return String(s).replace(/'/g, "'\\''");
+  }
+
+  function escXml(s) {
+    return String(s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function downloadScript() {
+    const token = document.getElementById('f-token').value.trim();
+    const name  = document.getElementById('f-name').value.trim() || 'My Mac';
+    const errEl = document.getElementById('form-err');
+
+    if (!token) { errEl.textContent = 'AGENT_TOKENを入力してください'; return; }
+    errEl.textContent = '';
+
+    const did = toDeviceId(name);
+    deviceId = did;
+
+    const host = location.host;
+    const wsUrl = `wss://${host}/ws/agent`;
+    const agentUrl = `https://${host}/mac-agent.js`;
+
+    const script = `#!/bin/bash
+set -e
+
+INSTALL_DIR="$HOME/.left-controller"
+PLIST_DIR="$HOME/Library/LaunchAgents"
+PLIST_NAME="com.leftcontroller.mac-agent.plist"
+
+echo "→ ディレクトリを作成..."
+mkdir -p "$INSTALL_DIR/logs" "$PLIST_DIR"
+
+echo "→ エージェントをダウンロード..."
+curl -fsSL '${agentUrl}' -o "$INSTALL_DIR/mac-agent.js"
+
+echo "→ launchd設定を作成..."
+cat > "$PLIST_DIR/$PLIST_NAME" << PLIST_BLOCK
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.leftcontroller.mac-agent</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/env</string>
+    <string>node</string>
+    <string>$INSTALL_DIR/mac-agent.js</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>$INSTALL_DIR</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>BROKER_WS_URL</key><string>${escXml(wsUrl)}</string>
+    <key>AGENT_TOKEN</key><string>${escXml(token)}</string>
+    <key>DEVICE_ID</key><string>${escXml(did)}</string>
+    <key>DEVICE_NAME</key><string>${escXml(name)}</string>
+  </dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>$INSTALL_DIR/logs/mac-agent.log</string>
+  <key>StandardErrorPath</key><string>$INSTALL_DIR/logs/mac-agent.log</string>
+</dict>
+</plist>
+PLIST_BLOCK
+
+echo "→ エージェントを起動..."
+launchctl unload "$PLIST_DIR/$PLIST_NAME" 2>/dev/null || true
+launchctl load "$PLIST_DIR/$PLIST_NAME"
+
+echo ""
+echo "✓ セットアップ完了！ブラウザに戻って接続を確認してください。"
+`;
+
+    const blob = new Blob([script], { type: 'text/x-sh' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'leftcontroller-setup.sh';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+
+    go(2);
+    startCheck();
+  }
+  window.downloadScript = downloadScript;
+
+  function startCheck() {
+    clearTimeout(checkTimer);
+    checkCount = 0;
+    poll();
+  }
+  window.startCheck = startCheck;
+
+  async function poll() {
+    const dot   = document.getElementById('stat-dot');
+    const title = document.getElementById('stat-title');
+    const desc  = document.getElementById('stat-desc');
+    const btn   = document.getElementById('admin-btn');
+
+    dot.className = 'dot pulsing';
+    title.textContent = '確認中...';
+    desc.textContent  = `（${checkCount + 1}回目）`;
+    btn.disabled = true;
+
+    try {
+      const data = await fetch(`/api/health?deviceId=${encodeURIComponent(deviceId)}`, { cache: 'no-store' }).then(r => r.json());
+      const online = Array.isArray(data.agentsOnline) &&
+        data.agentsOnline.some(a => a.macId === deviceId);
+
+      if (online) {
+        dot.className = 'dot ok';
+        title.textContent = '接続済み ✓';
+        desc.textContent  = `${deviceId} が接続されています`;
+        btn.disabled = false;
+        localStorage.setItem('left_controller_mac_setup_done', '1');
+        return;
+      }
+    } catch { /* ignore */ }
+
+    checkCount++;
+    if (checkCount < 8) {
+      title.textContent = 'まだ接続されていません';
+      desc.textContent  = `スクリプトを実行しましたか？（あと${8 - checkCount}回確認します）`;
+      checkTimer = setTimeout(poll, 4000);
+    } else {
+      dot.className = 'dot err';
+      title.textContent = '接続できません';
+      desc.textContent  = 'スクリプトを実行してからもう一度確認してください';
+    }
+  }
+
+  function goAdmin() { location.href = '/admin'; }
+  window.goAdmin = goAdmin;
+
+  function copyEl(id, btn) {
+    navigator.clipboard.writeText(document.getElementById(id).textContent).then(() => {
+      btn.textContent = 'コピー済み ✓';
+      btn.classList.add('ok');
+      setTimeout(() => { btn.textContent = 'コピー'; btn.classList.remove('ok'); }, 2000);
+    });
+  }
+  window.copyEl = copyEl;
+})();
+</script>
+</body>
+</html>

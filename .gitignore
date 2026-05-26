@@ -4,3 +4,4 @@ logs/
 *.log
 certs/
 .env
+relay/relay-state.json

@@ -61,9 +61,11 @@ let isAuthed = false;
 let pinUnlocked = false;
 let isAuthPending = false;
 let authRetryTimer = null;
+let sessionToken = '';
 let lastSentAt = 0;
 
 const holdTimers = new Map();
+const ICON_CACHE_BUST = Date.now();
 
 const savedPin = localStorage.getItem(PIN_STORAGE_KEY) || '';
 if (savedPin) {
@@ -205,8 +207,10 @@ function connectWebSocket() {
       if (data.type === 'auth_result') {
         stopAuthRetryLoop();
         if (data.ok) {
+          sessionToken = data.token || '';
           setAuth(true, '認証済み');
           localStorage.setItem(PIN_STORAGE_KEY, pinInput.value.trim());
+          loadCommandsFromServer();
         } else {
           pinUnlocked = false;
           setAuth(false, 'PINエラー');
@@ -359,12 +363,37 @@ function bindButton(btn) {
   });
 }
 
+function escapeHtml(text) {
+  return String(text || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function buildFallbackLabel(command) {
+  const label = String(command?.label || '')
+    .replace(/を開く$/, '')
+    .trim();
+  const first = label ? Array.from(label)[0] : '';
+  return escapeHtml(first || '•');
+}
+
+function withIconCacheBust(iconUrl) {
+  const raw = String(iconUrl || '').trim();
+  if (!raw) return '';
+  const sep = raw.includes('?') ? '&' : '?';
+  return `${raw}${sep}cb=${ICON_CACHE_BUST}`;
+}
+
 function buildTile(command) {
   const icon = ICON_MAP[command.id] || { emoji: '⬢', className: 'icon-codex' };
-  const iconUrl = command.ui?.iconUrl || '';
+  const iconUrl = withIconCacheBust(command.ui?.iconUrl || '');
+  const fallbackLabel = buildFallbackLabel(command);
   const iconInner = iconUrl
-    ? `<img class="real-icon" src="${iconUrl}" alt="" />`
-    : icon.emoji;
+    ? `<span class="fallback-mark">${fallbackLabel}</span><img class="real-icon" src="${iconUrl}" alt="" loading="eager" decoding="async" onerror="this.style.display='none'; this.parentElement.classList.remove('has-real');" />`
+    : `<span class="fallback-mark">${escapeHtml(icon.emoji)}</span>`;
   const hasRealClass = iconUrl ? 'has-real' : '';
 
   return `
@@ -375,12 +404,30 @@ function buildTile(command) {
 }
 
 function renderCommandButtons(commands) {
+  if (gridEl) {
+    gridEl.style.gridTemplateColumns = 'repeat(2, minmax(0, 1fr))';
+    gridEl.style.gridTemplateRows = 'repeat(4, auto)';
+    gridEl.style.justifyItems = 'center';
+    gridEl.style.alignItems = 'start';
+    gridEl.style.gap = '18px 12px';
+  }
+
   gridEl.innerHTML = '';
 
   commands.forEach((cmd) => {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'pad-btn';
+    button.style.all = 'unset';
+    button.style.display = 'grid';
+    button.style.placeItems = 'center';
+    button.style.background = 'transparent';
+    button.style.border = '0';
+    button.style.boxShadow = 'none';
+    button.style.margin = '0';
+    button.style.padding = '0';
+    button.style.cursor = 'pointer';
+    button.style.touchAction = 'manipulation';
     button.innerHTML = buildTile(cmd);
     button.dataset.command = cmd.id;
     button.dataset.requireHold = cmd.ui?.requireHold ? 'true' : 'false';
@@ -409,7 +456,8 @@ function renderCommandButtons(commands) {
 
 async function loadCommandsFromServer() {
   try {
-    const res = await fetch('/api/commands', { cache: 'no-store' });
+    const headers = sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {};
+    const res = await fetch('/api/commands', { cache: 'no-store', headers });
     if (!res.ok) {
       throw new Error(`HTTP ${res.status}`);
     }

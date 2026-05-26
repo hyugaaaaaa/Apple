@@ -1,69 +1,64 @@
-# Tech Stack / 使用言語まとめ
+# Tech Stack
 
-このプロジェクト（iPhone Left Controller）で現在使っている言語・フォーマットは以下です。
+## 言語・ランタイム
 
-## 1. JavaScript (Node.js / ブラウザ)
-- 用途:
-  - サーバー実装（WebSocket, HTTP配信, コマンド実行, 認証, 監査ログ）
-  - クライアント実装（PWA UI, WebSocketクライアント, 再接続, PIN認証UI）
-  - Service Worker（オフライン対応 / Network First）
-- 主なファイル:
-  - `server.js`
-  - `public/app.js`
-  - `public/sw.js`
+| 言語 | 用途 | 主なファイル |
+|------|------|------------|
+| JavaScript (Node.js) | ブローカーサーバー、Macエージェント | `relay/broker.js`, `relay/mac-agent.js` |
+| JavaScript (ブラウザ) | 各画面のUI・WebSocket通信 | `public/*.js` |
+| HTML | 各画面の構造 | `public/*.html` |
+| CSS | UIスタイル | `public/style.css`, `public/controller-layout.css`, `public/controller-orientation.css` |
+| XML (plist) | launchd 常駐設定 | `launchd/*.plist.example`, mac-setup で自動生成 |
+| Shell Script (bash) | Macエージェント自動セットアップ | mac-setup.html で動的生成 |
 
-## 2. HTML
-- 用途:
-  - iPhone向けPWA画面構造（ボタン、デバッグ表示、PIN入力）
-- 主なファイル:
-  - `public/index.html`
+## 画面ファイル
 
-## 3. CSS
-- 用途:
-  - iPhone向けUIスタイル（グリッド、状態表示、長押し視覚フィードバック）
-- 主なファイル:
-  - `public/style.css`
+| ファイル | デバイス | 説明 |
+|----------|----------|------|
+| `public/lp-onboarding.html` | 共通 | LP・初回オンボーディング（5ステップ） |
+| `public/mac-setup.html` | Mac | Macエージェントセットアップガイド |
+| `public/admin.html` + `admin.js` | Mac | 管理画面（アプリ登録・PIN確認） |
+| `public/auth.html` + `auth.js` | iPhone | PIN認証画面 |
+| `public/controller.html` + `controller.js` | iPhone | コントローラー画面（アプリボタン） |
+| `public/sw.js` | 共通 | Service Worker（オフライン対応） |
 
-## 4. JSON
-- 用途:
-  - コマンド定義（ボタン内容、危険フラグ、実行アクション）
-  - PWAマニフェスト
-  - npmメタデータ
-- 主なファイル:
-  - `commands.json`
-  - `public/manifest.json`
-  - `package.json`
-  - `package-lock.json`
+## サーバーコンポーネント
 
-## 5. AppleScript（埋め込み文字列として使用）
-- 用途:
-  - macOSアプリ制御（前面化、他アプリ非表示、Mission Control、ウィンドウ操作）
-- 実装場所:
-  - `server.js` 内の `runAppleScript(...)` 呼び出し文字列
+| ファイル | 説明 |
+|----------|------|
+| `relay/broker.js` | Cloud Run 上のWebSocketブローカー。HTTP APIも兼ねる |
+| `relay/mac-agent.js` | Mac上に常駐するエージェント。launchd で自動起動 |
 
-## 6. Shell Script (bash)
-- 用途:
-  - 証明書生成
-  - launchd サービスのインストール / 停止 / 状態確認
-- 主なファイル:
-  - `scripts/gen-cert.sh`
-  - `scripts/service-install.sh`
-  - `scripts/service-stop.sh`
-  - `scripts/service-status.sh`
+## 主要な npm パッケージ
 
-## 7. XML (plist)
-- 用途:
-  - launchd 常駐設定（自動起動・環境変数・ログ出力先）
-- 主なファイル:
-  - `launchd/com.hyuga.leftcontroller.plist`
+| パッケージ | 用途 |
+|-----------|------|
+| `ws` | WebSocketサーバー（broker.js, mac-agent.js） |
 
-## 8. ログフォーマット
-- 監査ログは JSON Lines 形式（1行1JSON）
-- 主なファイル:
-  - `logs/audit.log`
-  - `logs/server.log`
+## デプロイ構成
 
-## 補足
-- 現在のランタイム基盤は Node.js。
-- 通信は WebSocket (`ws` パッケージ) を使用。
-- PWAとして iPhone Safari から操作する構成。
+| 環境 | 説明 |
+|------|------|
+| GCP Cloud Run | `relay/broker.js` を `Dockerfile` でコンテナ化してデプロイ |
+| Mac（launchd） | `relay/mac-agent.js` を `~/Library/LaunchAgents/` の plist で常駐 |
+
+## 通信
+
+```
+iPhone ←→ (WebSocket / wss) ←→ Cloud Run broker.js ←→ (WebSocket /ws/agent) ←→ mac-agent.js
+iPhone ←→ (HTTPS)           ←→ Cloud Run broker.js  （静的ファイル・API）
+```
+
+- iPhone ↔ ブローカー間: PIN認証 → セッショントークン（sessionStorage、有効期限12時間）
+- Mac ↔ ブローカー間: AGENT_TOKEN で認証（チーム共有）
+- 管理画面（Mac Safari） ↔ ブローカー間: PIN認証 → 管理セッショントークン（sessionStorage、有効期限8時間）
+
+## セキュリティ
+
+| 機能 | 実装 |
+|------|------|
+| Macエージェント認証 | `AGENT_TOKEN`（環境変数）でWS接続を認証 |
+| iPhoneペアリング | 6桁PINで認証 → JWTライクなセッショントークン発行 |
+| PINロック | 5回失敗で10分ロック |
+| 管理画面認証 | PINで管理セッショントークンを発行（Bearerトークン） |
+| パスバリデーション | `get_icon` RPCでパストラバーサル防御済み |

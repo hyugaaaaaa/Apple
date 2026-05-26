@@ -3,6 +3,7 @@
 const UNLOCK_KEY = 'left_controller_unlocked';
 const TOKEN_STORAGE_KEY = 'left_controller_token';
 const TOKEN_EXPIRES_KEY = 'left_controller_token_expires';
+const DEVICE_ID_STORAGE_KEY = 'left_controller_device_id';
 
 function resolveWsUrl() {
   if (window.location.protocol === 'file:') {
@@ -14,19 +15,10 @@ function resolveWsUrl() {
 
 const wsUrl = resolveWsUrl();
 
-const wsUrlEl = document.getElementById('ws-url');
-const wsUrlMiniEl = document.getElementById('ws-url-mini');
-const wsStatusEl = document.getElementById('ws-status');
-const wsStatusMiniEl = document.getElementById('ws-status-mini');
-const lastEventEl = document.getElementById('last-event');
 const authScreenStatusEl = document.getElementById('auth-screen-status');
 const pairingHintEl = document.getElementById('pairing-hint');
 const pinInput = document.getElementById('pin-input');
 const authBtn = document.getElementById('auth-btn');
-const clearCacheBtn = document.getElementById('clear-cache');
-
-if (wsUrlEl) wsUrlEl.textContent = wsUrl;
-if (wsUrlMiniEl) wsUrlMiniEl.textContent = wsUrl;
 
 let ws = null;
 let reconnectAttempts = 0;
@@ -34,6 +26,31 @@ let reconnectTimer = null;
 let authPending = false;
 let authRetryTimer = null;
 let pinPolicy = { minDigits: 6, maxDigits: 8 };
+
+function getOrCreateDeviceId() {
+  const current = localStorage.getItem(DEVICE_ID_STORAGE_KEY) || '';
+  if (current) return current;
+
+  let next = '';
+  if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+    next = window.crypto.randomUUID();
+  } else {
+    next = `dev-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+  localStorage.setItem(DEVICE_ID_STORAGE_KEY, next);
+  return next;
+}
+
+function buildDeviceName() {
+  const ua = navigator.userAgent || '';
+  if (/iPhone/i.test(ua)) return 'iPhone';
+  if (/iPad/i.test(ua)) return 'iPad';
+  if (/Android/i.test(ua)) return 'Android';
+  return 'Browser Device';
+}
+
+const deviceId = getOrCreateDeviceId();
+const deviceName = buildDeviceName();
 
 function getStoredToken() {
   const token = sessionStorage.getItem(TOKEN_STORAGE_KEY) || '';
@@ -48,17 +65,12 @@ function getStoredToken() {
 }
 
 function setLastEvent(text) {
-  if (lastEventEl) lastEventEl.textContent = `${new Date().toLocaleTimeString()} - ${text}`;
+  void text;
 }
 
 function setStatus(text, okState) {
-  for (const el of [wsStatusEl, wsStatusMiniEl]) {
-    if (!el) continue;
-    el.textContent = text;
-    el.classList.remove('status-ok', 'status-ng');
-    if (okState === true) el.classList.add('status-ok');
-    if (okState === false) el.classList.add('status-ng');
-  }
+  void text;
+  void okState;
 }
 
 function setAuthScreenStatus(text, okState) {
@@ -74,7 +86,7 @@ function sendAuth() {
   if (!pin) return false;
   if (!ws || ws.readyState !== WebSocket.OPEN) return false;
 
-  ws.send(JSON.stringify({ type: 'auth', pin }));
+  ws.send(JSON.stringify({ type: 'auth', pin, deviceId, deviceName }));
   return true;
 }
 
@@ -82,7 +94,7 @@ function sendAuthToken() {
   const token = getStoredToken();
   if (!token) return false;
   if (!ws || ws.readyState !== WebSocket.OPEN) return false;
-  ws.send(JSON.stringify({ type: 'auth_token', token }));
+  ws.send(JSON.stringify({ type: 'auth_token', token, deviceId }));
   return true;
 }
 
@@ -122,7 +134,11 @@ function requestAuthFlow() {
 async function loadPairingInfo() {
   if (!pairingHintEl) return;
   try {
-    const res = await fetch('/api/pairing', { cache: 'no-store' });
+    const qs = new URLSearchParams({
+      deviceId,
+      deviceName
+    });
+    const res = await fetch(`/api/pairing?${qs.toString()}`, { cache: 'no-store' });
     if (!res.ok) return;
     const data = await res.json();
     if (!data.ok) return;
@@ -132,7 +148,7 @@ async function loadPairingInfo() {
       const minDigits = policy.minDigits || 6;
       const maxDigits = policy.maxDigits || 8;
       pinPolicy = { minDigits, maxDigits };
-      pairingHintEl.textContent = `Mac「${data.deviceName || '-'}」の管理画面PINを入力（推奨 ${minDigits}〜${maxDigits}桁）。`;
+      pairingHintEl.textContent = `対象Macの管理画面に表示されているPINを入力（推奨 ${minDigits}〜${maxDigits}桁）。`;
     } else {
       pairingHintEl.textContent = 'このサーバーはPIN認証が無効です。';
     }
@@ -202,6 +218,8 @@ function connectWebSocket() {
         sessionStorage.removeItem(UNLOCK_KEY);
         if (data.reason === 'locked' && data.retryAfterSeconds) {
           setAuthScreenStatus(`ロック中: ${data.retryAfterSeconds}秒後に再試行`, false);
+        } else if (data.reason === 'pin_other_device') {
+          setAuthScreenStatus(data.message || 'このPINは別端末用です。自分の端末で発行されたPINを入力してください。', false);
         } else {
           setAuthScreenStatus('認証エラー', false);
         }
@@ -241,28 +259,6 @@ if (pinInput) {
     if (event.key !== 'Enter') return;
     event.preventDefault();
     requestAuthFlow();
-  });
-}
-
-if (clearCacheBtn) {
-  clearCacheBtn.addEventListener('click', async () => {
-    try {
-      if ('caches' in window) {
-        const keys = await caches.keys();
-        await Promise.all(keys.map((key) => caches.delete(key)));
-      }
-      if ('serviceWorker' in navigator) {
-        const regs = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(regs.map((r) => r.unregister()));
-      }
-      sessionStorage.removeItem(TOKEN_STORAGE_KEY);
-      sessionStorage.removeItem(TOKEN_EXPIRES_KEY);
-      sessionStorage.removeItem(UNLOCK_KEY);
-      setLastEvent('キャッシュとService Workerをクリアしました。再読み込みします。');
-      setTimeout(() => window.location.reload(), 500);
-    } catch (err) {
-      setLastEvent(`クリア失敗: ${err.message}`);
-    }
   });
 }
 

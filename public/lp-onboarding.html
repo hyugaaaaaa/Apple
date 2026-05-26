@@ -237,11 +237,7 @@ Left Controller.</h1>
 
   <script>
     (() => {
-      const steps = Array.from(document.querySelectorAll('[data-step]'));
-      const total = steps.length;
-      const DURATION = 820;
-      let index = 0;
-      let animating = false;
+      const ONBOARDING_KEY = 'left_controller_onboarding_done_v1';
 
       function isMobileDevice() {
         const ua = navigator.userAgent || '';
@@ -250,8 +246,54 @@ Left Controller.</h1>
         return mobileUA || iPadOS13Up;
       }
 
+      if (localStorage.getItem(ONBOARDING_KEY)) {
+        if (isMobileDevice()) {
+          window.location.replace('/auth.html');
+        } else {
+          window.location.replace(localStorage.getItem('left_controller_mac_setup_done') ? '/admin.html' : '/mac-setup');
+        }
+        return;
+      }
+
+      const steps = Array.from(document.querySelectorAll('[data-step]'));
+      const total = steps.length;
+      const DURATION = 820;
+      let index = 0;
+      let animating = false;
+
+      function resolveNextTarget() {
+        const params = new URLSearchParams(window.location.search || '');
+        const nextRaw = (params.get('next') || params.get('returnTo') || '').trim();
+        if (nextRaw) {
+          try {
+            const nextUrl = new URL(nextRaw, window.location.origin);
+            return nextUrl.origin === window.location.origin
+              ? `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`
+              : nextUrl.href;
+          } catch {
+            // ignore malformed next path and fallback to device route
+          }
+        }
+        if (isMobileDevice()) return '/controller.html';
+        return localStorage.getItem('left_controller_mac_setup_done') ? '/admin.html' : '/mac-setup';
+      }
+
+      function appendFromLp(target) {
+        try {
+          const url = new URL(target, window.location.origin);
+          url.searchParams.set('fromLp', '1');
+          if (url.origin === window.location.origin) {
+            return `${url.pathname}${url.search}${url.hash}`;
+          }
+          return url.href;
+        } catch {
+          return target;
+        }
+      }
+
       function routeByDevice() {
-        const target = isMobileDevice() ? '/controller.html' : '/admin.html';
+        localStorage.setItem(ONBOARDING_KEY, '1');
+        const target = appendFromLp(resolveNextTarget());
         const isFile = window.location.protocol === 'file:';
         if (isFile) {
           window.location.href = `http://localhost:8080${target}`;

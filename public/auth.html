@@ -5,11 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#251103" />
-  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f2e4d6" />
+  <meta name="theme-color" content="#000000" />
   <title>Left Controller - Auth</title>
   <link rel="manifest" href="/manifest.json" />
-  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" href="/favicon.png" type="image/png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <style>
+    html, body {
+      background: #000 !important;
+      color: #fff !important;
+    }
+    body.auth-theme {
+      color-scheme: dark;
+    }
+    body.auth-theme .app-shell::before {
+      background: none !important;
+    }
+  </style>
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body class="auth-theme">
@@ -24,23 +36,8 @@
         <p id="auth-screen-status" class="auth-screen-status">未認証</p>
       </div>
     </section>
-
-    <section class="debug-mini" aria-label="connection status">
-      <div><strong>IP:</strong> <span id="ws-url-mini">-</span></div>
-      <div><strong>WS:</strong> <span id="ws-status-mini">未接続</span></div>
-    </section>
-
-    <details class="debug-drawer">
-      <summary>Debug</summary>
-      <section class="debug" aria-label="debug panel">
-        <div><strong>WS URL:</strong> <span id="ws-url">-</span></div>
-        <div><strong>Status:</strong> <span id="ws-status">未接続</span></div>
-        <div><strong>Last:</strong> <span id="last-event">-</span></div>
-        <button id="clear-cache" class="ghost" type="button">キャッシュクリア</button>
-      </section>
-    </details>
   </main>
 
-  <script src="/auth.js"></script>
+  <script src="/auth.js?v=20260521-authclean1"></script>
 </body>
 </html>
