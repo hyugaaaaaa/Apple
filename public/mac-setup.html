@@ -300,12 +300,53 @@ INSTALL_DIR="$HOME/.left-controller"
 PLIST_DIR="$HOME/Library/LaunchAgents"
 PLIST_NAME="com.leftcontroller.mac-agent.plist"
 
+# ── Node.js のパスを特定 ──────────────────────────────────────
+echo "→ Node.jsを確認..."
+NODE_BIN=""
+for p in \
+  "$(command -v node 2>/dev/null)" \
+  /usr/local/bin/node \
+  /opt/homebrew/bin/node \
+  /opt/homebrew/opt/node/bin/node \
+  "$HOME/.nvm/versions/node/$(ls $HOME/.nvm/versions/node 2>/dev/null | sort -V | tail -1)/bin/node" \
+  "$HOME/.nodenv/shims/node"; do
+  if [ -x "$p" ]; then
+    NODE_BIN="$p"
+    break
+  fi
+done
+
+if [ -z "$NODE_BIN" ]; then
+  echo ""
+  echo "❌ Node.jsが見つかりません。"
+  echo "   https://nodejs.org/ からインストールして再実行してください。"
+  exit 1
+fi
+echo "   Node.js: $NODE_BIN ($("$NODE_BIN" --version))"
+
+# ── NPM のパスを特定 ──────────────────────────────────────────
+NPM_BIN="$(dirname "$NODE_BIN")/npm"
+if [ ! -x "$NPM_BIN" ]; then
+  NPM_BIN="$(command -v npm 2>/dev/null)"
+fi
+
+# ── ディレクトリ作成 ──────────────────────────────────────────
 echo "→ ディレクトリを作成..."
 mkdir -p "$INSTALL_DIR/logs" "$PLIST_DIR"
 
+# ── エージェント本体をダウンロード ───────────────────────────
 echo "→ エージェントをダウンロード..."
 curl -fsSL '${agentUrl}' -o "$INSTALL_DIR/mac-agent.js"
 
+# ── 依存パッケージをインストール ─────────────────────────────
+echo "→ 依存パッケージをインストール (ws)..."
+if [ -x "$NPM_BIN" ]; then
+  (cd "$INSTALL_DIR" && "$NPM_BIN" install ws --no-fund --no-audit --loglevel error)
+else
+  echo "   ⚠ npmが見つかりません。スキップします。"
+fi
+
+# ── launchd 設定を作成 ────────────────────────────────────────
 echo "→ launchd設定を作成..."
 cat > "$PLIST_DIR/$PLIST_NAME" << PLIST_BLOCK
 <?xml version="1.0" encoding="UTF-8"?>
@@ -316,8 +357,7 @@ cat > "$PLIST_DIR/$PLIST_NAME" << PLIST_BLOCK
   <string>com.leftcontroller.mac-agent</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/usr/bin/env</string>
-    <string>node</string>
+    <string>$NODE_BIN</string>
     <string>$INSTALL_DIR/mac-agent.js</string>
   </array>
   <key>WorkingDirectory</key>
@@ -328,6 +368,7 @@ cat > "$PLIST_DIR/$PLIST_NAME" << PLIST_BLOCK
     <key>AGENT_TOKEN</key><string>${escXml(token)}</string>
     <key>DEVICE_ID</key><string>${escXml(did)}</string>
     <key>DEVICE_NAME</key><string>${escXml(name)}</string>
+    <key>NODE_PATH</key><string>$INSTALL_DIR/node_modules</string>
   </dict>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
@@ -337,12 +378,14 @@ cat > "$PLIST_DIR/$PLIST_NAME" << PLIST_BLOCK
 </plist>
 PLIST_BLOCK
 
+# ── エージェントを起動 ────────────────────────────────────────
 echo "→ エージェントを起動..."
 launchctl unload "$PLIST_DIR/$PLIST_NAME" 2>/dev/null || true
 launchctl load "$PLIST_DIR/$PLIST_NAME"
 
 echo ""
 echo "✓ セットアップ完了！ブラウザに戻って接続を確認してください。"
+echo "  ログ: $INSTALL_DIR/logs/mac-agent.log"
 `;
 
     const blob = new Blob([script], { type: 'text/x-sh' });
