@@ -406,6 +406,9 @@ function closeModal() {
   replaceSlotIndex = null;
   replaceCandidatePath = null;
   appModalEl.classList.remove('show');
+  if (appModalEl.contains(document.activeElement)) {
+    document.activeElement.blur();
+  }
   appModalEl.setAttribute('aria-hidden', 'true');
 }
 
@@ -628,8 +631,11 @@ async function loadState() {
     headers: adminAuthHeaders()
   });
   if (res.status === 401) {
-    // Only show login modal if we still have no valid token (guard against race condition)
-    if (!getAdminToken()) showAdminLoginModal();
+    // サーバー再起動などでトークンが無効化された場合も含め、常にログインモーダルを表示
+    sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+    sessionStorage.removeItem(ADMIN_TOKEN_EXPIRES_KEY);
+    sessionStorage.removeItem(ADMIN_MAC_ID_KEY);
+    showAdminLoginModal();
     return;
   }
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
