@@ -203,21 +203,26 @@ async function extractIconPngBase64(appPath) {
 
 async function minimizeOtherWindows(targetDisplayName) {
   const safeName = String(targetDisplayName).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-  // System Events でアプリ名一覧を取得 → 各アプリに直接話しかけて miniaturize
-  // (Accessibility不要。Automation権限のみ必要で初回ダイアログで自動許可)
+  // アプリ名ではなくフルパスで指定 → "どこにありますか？"ダイアログを回避
   const script = [
     'tell application "System Events"',
     `  set targetName to "${safeName}"`,
-    '  set runningNames to name of every application process whose visible is true',
+    '  set appPaths to {}',
+    '  repeat with proc in (application processes whose visible is true)',
+    '    if name of proc is not targetName then',
+    '      try',
+    '        set appPath to POSIX path of (application file of proc)',
+    '        set end of appPaths to appPath',
+    '      end try',
+    '    end if',
+    '  end repeat',
     'end tell',
-    'repeat with appName in runningNames',
-    '  if appName is not targetName then',
-    '    try',
-    '      tell application appName',
-    '        set miniaturized of every window to true',
-    '      end tell',
-    '    end try',
-    '  end if',
+    'repeat with appPath in appPaths',
+    '  try',
+    '    tell application appPath',
+    '      set miniaturized of every window to true',
+    '    end tell',
+    '  end try',
     'end repeat'
   ].join('\n');
 
