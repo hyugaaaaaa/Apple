@@ -3,22 +3,14 @@
 const UNLOCK_KEY = 'left_controller_unlocked';
 const TOKEN_STORAGE_KEY = 'left_controller_token';
 const TOKEN_EXPIRES_KEY = 'left_controller_token_expires';
-const DEVICE_ID_STORAGE_KEY = 'left_controller_device_id';
 const MIN_SEND_INTERVAL_MS = 180;
 const HOLD_MS = 450;
-const ITEMS_PER_PAGE = 8;
-const MAX_PAGES = 3;
-const MAX_COMMANDS = ITEMS_PER_PAGE * MAX_PAGES;
+const DOUBLE_TAP_MS = 320;
+const ITEMS_PER_PAGE = window.LeftController.LIMITS.itemsPerPage;
+const MAX_PAGES = window.LeftController.LIMITS.pages;
+const MAX_COMMANDS = window.LeftController.LIMITS.maxCommands;
 
-function resolveWsUrl() {
-  if (window.location.protocol === 'file:') {
-    return 'ws://localhost:8080';
-  }
-  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${wsProtocol}//${window.location.host}`;
-}
-
-const wsUrl = resolveWsUrl();
+const wsUrl = window.LeftController.resolveWsUrl();
 
 const DEFAULT_COMMANDS = [
   { id: 'open_safari', label: 'Safariを開く', ui: { requireHold: false, dangerous: false } },
@@ -83,20 +75,7 @@ let commandsReloadPending = false;
 const holdTimers = new Map();
 const ICON_CACHE_BUST = Date.now();
 
-function getOrCreateDeviceId() {
-  const current = localStorage.getItem(DEVICE_ID_STORAGE_KEY) || '';
-  if (current) return current;
-  let next = '';
-  if (window.crypto && typeof window.crypto.randomUUID === 'function') {
-    next = window.crypto.randomUUID();
-  } else {
-    next = `dev-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-  }
-  localStorage.setItem(DEVICE_ID_STORAGE_KEY, next);
-  return next;
-}
-
-const deviceId = getOrCreateDeviceId();
+const deviceId = window.LeftController.getOrCreateDeviceId();
 
 function getStoredToken() {
   const token = sessionStorage.getItem(TOKEN_STORAGE_KEY) || '';
@@ -286,7 +265,7 @@ function canSendNow() {
   return true;
 }
 
-function sendCommand(commandId, dangerous) {
+function sendCommand(commandId, dangerous, { minimize = false } = {}) {
   if (!ws || ws.readyState !== WebSocket.OPEN) {
     setLastEvent(`送信失敗: WS未接続 (${commandId})`);
     return;
@@ -295,11 +274,11 @@ function sendCommand(commandId, dangerous) {
     setLastEvent(`送信失敗: 未認証 (${commandId})`);
     return;
   }
-  if (!canSendNow()) {
+  if (!minimize && !canSendNow()) {
     setLastEvent(`連打制限: ${commandId}`);
     return;
   }
-  if (dangerous && !window.confirm(`\"${commandId}\" を実行しますか？`)) {
+  if (dangerous && !minimize && !window.confirm(`\"${commandId}\" を実行しますか？`)) {
     setLastEvent(`キャンセル: ${commandId}`);
     return;
   }
@@ -307,6 +286,7 @@ function sendCommand(commandId, dangerous) {
   ws.send(JSON.stringify({
     type: 'command',
     command: commandId,
+    minimize: minimize || undefined,
     requestId: `${Date.now()}-${Math.random().toString(16).slice(2)}`
   }));
 }
@@ -332,6 +312,9 @@ function startHold(btn, commandId, dangerous) {
   holdTimers.set(btn, timer);
 }
 
+// ダブルタップ検出: commandId → 最後にタップした時刻
+const doubleTapLastTime = new Map();
+
 function bindButton(btn) {
   const commandId = btn.dataset.command;
   const requireHold = btn.dataset.requireHold === 'true';
@@ -344,7 +327,20 @@ function bindButton(btn) {
       startHold(btn, commandId, dangerous);
       return;
     }
-    sendCommand(commandId, dangerous);
+
+    const now = Date.now();
+    const last = doubleTapLastTime.get(commandId) || 0;
+    const isDouble = (now - last) < DOUBLE_TAP_MS;
+    doubleTapLastTime.set(commandId, isDouble ? 0 : now); // リセットして3連打を防ぐ
+
+    if (isDouble) {
+      // ダブルタップ → 最小化
+      btn.classList.add('minimizing');
+      setTimeout(() => btn.classList.remove('minimizing'), 400);
+      sendCommand(commandId, false, { minimize: true });
+    } else {
+      sendCommand(commandId, dangerous);
+    }
   };
 
   const onPressEnd = (event) => {
@@ -519,13 +515,6 @@ function setCommands(nextCommands) {
   setPage(currentPage);
 }
 
-function getSessionToken() {
-  const token = sessionStorage.getItem(TOKEN_STORAGE_KEY) || '';
-  const expiresAt = Number(sessionStorage.getItem(TOKEN_EXPIRES_KEY) || '0');
-  if (!token || (expiresAt && Date.now() >= expiresAt)) return '';
-  return token;
-}
-
 async function loadCommandsFromServer() {
   if (commandsLoading) {
     commandsReloadPending = true;
@@ -534,7 +523,7 @@ async function loadCommandsFromServer() {
   commandsLoading = true;
 
   try {
-    const token = getSessionToken();
+    const token = getStoredToken();
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
     const res = await fetch('/api/commands', { cache: 'no-store', headers });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);

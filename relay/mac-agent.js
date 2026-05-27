@@ -201,37 +201,11 @@ async function extractIconPngBase64(appPath) {
   }
 }
 
-async function minimizeOtherWindows(targetDisplayName) {
-  const safeName = String(targetDisplayName).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-  // アプリ名ではなくフルパスで指定 → "どこにありますか？"ダイアログを回避
-  const script = [
-    'tell application "System Events"',
-    `  set targetName to "${safeName}"`,
-    '  set appPaths to {}',
-    '  repeat with proc in (application processes whose visible is true)',
-    '    if name of proc is not targetName then',
-    '      try',
-    '        set appPath to POSIX path of (application file of proc)',
-    '        set end of appPaths to appPath',
-    '      end try',
-    '    end if',
-    '  end repeat',
-    'end tell',
-    'repeat with appPath in appPaths',
-    '  try',
-    '    tell application appPath',
-    '      set miniaturized of every window to true',
-    '    end tell',
-    '  end try',
-    'end repeat'
-  ].join('\n');
-
-  const tmpFile = require('os').tmpdir() + '/leftctl-minimize.applescript';
-  require('fs').writeFileSync(tmpFile, script, 'utf8');
-  try {
-    await runExec('/usr/bin/osascript', [tmpFile], { timeoutMs: 8000 });
-  } finally {
-    try { require('fs').unlinkSync(tmpFile); } catch { /* ignore */ }
+async function minimizeOtherWindows(targetAppPath) {
+  // Swift製ヘルパーで他アプリを最小化（AX API使用、自動化許可ダイアログ不要）
+  const helperPath = path.join(__dirname, 'leftctl-minimize');
+  if (fs.existsSync(helperPath) && targetAppPath) {
+    await runExec(helperPath, ['--others', targetAppPath], { timeoutMs: 8000 });
   }
 }
 
@@ -244,10 +218,8 @@ async function executeOpenApp(command) {
     throw new Error('missing_app_target');
   }
 
-  const displayName = appPath ? appPathToName(appPath) : appName;
-
   // minimize はバックグラウンドで並列実行し、open の完了を待たない
-  minimizeOtherWindows(displayName).catch(() => {});
+  if (appPath) minimizeOtherWindows(appPath).catch(() => {});
 
   if (appPath) {
     await runExec('/usr/bin/open', ['-a', appPath]);
@@ -259,6 +231,52 @@ async function executeOpenApp(command) {
     ok: true,
     message: `opened:${appPath || appName}`
   };
+}
+
+async function executeMinimizeApp(command) {
+  const action = command?.action || {};
+  const appPath = String(action.path || '').trim();
+  const appName = String(action.app || '').trim();
+
+  if (!appPath && !appName) {
+    throw new Error('missing_app_target');
+  }
+
+  // Swift製CLIツールでAX APIを使って最小化（Electronアプリを含む全アプリ対応）
+  const helperPath = path.join(__dirname, 'leftctl-minimize');
+  if (fs.existsSync(helperPath) && appPath) {
+    try {
+      await runExec(helperPath, [appPath], { timeoutMs: 8000 });
+      return { ok: true, message: `minimized:${appPath}` };
+    } catch {
+      // フォールバック: osascript（ネイティブアプリ用）
+    }
+  }
+
+  // osascript フォールバック（ネイティブAppleScriptアプリ用）
+  const target = appPath
+    ? appPath.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+    : appName.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+
+  const script = [
+    `tell application "${target}"`,
+    '  repeat with w in windows',
+    '    try',
+    '      set miniaturized of w to true',
+    '    end try',
+    '  end repeat',
+    'end tell'
+  ].join('\n');
+
+  const tmpFile = os.tmpdir() + '/leftctl-minimize-app.applescript';
+  fs.writeFileSync(tmpFile, script, 'utf8');
+  try {
+    await runExec('/usr/bin/osascript', [tmpFile], { timeoutMs: 8000 });
+  } finally {
+    try { fs.unlinkSync(tmpFile); } catch { /* ignore */ }
+  }
+
+  return { ok: true, message: `minimized:${appPath || appName}` };
 }
 
 async function handleRpc(method, params) {
@@ -289,6 +307,9 @@ async function handleRpc(method, params) {
     const command = params?.command || {};
     if (command?.action?.type === 'open_app') {
       return executeOpenApp(command);
+    }
+    if (command?.action?.type === 'minimize_app') {
+      return executeMinimizeApp(command);
     }
     throw new Error('unsupported_command_type');
   }

@@ -11,7 +11,15 @@ iPhone (PWA)
 GCP Cloud Run — relay/broker.js
   ↕ WebSocket (/ws/agent)
 Mac local agent — relay/mac-agent.js  (launchd 常駐)
+  └─ Swift helper: ~/.left-controller/leftctl-minimize  (AX API でウィンドウ最小化)
 ```
+
+## 主な機能
+
+- **アプリ起動**: アイコンをタップで Mac の対応アプリをフォアグラウンドへ
+- **ウィンドウ最小化**: アイコンをダブルタップでそのアプリのウィンドウを Dock へ最小化
+- **他アプリ最小化**: アプリ起動時、他のアクティブウィンドウを自動的に最小化
+- **PIN回復**: 管理画面のログインモーダルから「PINを忘れた場合」でエージェント経由で再表示
 
 ## 画面遷移
 
@@ -68,6 +76,26 @@ AGENT_TOKENはチームで共有する値。Cloud Run の環境変数 `AGENT_TOK
 | `MAC_PINS` | | 複数Mac用: `"macId1:pin1,macId2:pin2"` |
 | `REQUIRE_PIN` | | `false`でPIN認証無効（デフォルト: `true`） |
 | `DEBUG_UI` | | `true`でデバッグUI表示（デフォルト: `false`） |
+| `SESSION_TOKEN_TTL_MS` | | iPhoneセッション有効期限（デフォルト: 12時間） |
+| `ADMIN_SESSION_TTL_MS` | | 管理画面セッション有効期限（デフォルト: 8時間） |
+| `PIN_MAX_ATTEMPTS` | | PIN試行回数上限（デフォルト: 5） |
+| `PIN_LOCK_MS` | | PINロック時間（デフォルト: 10分） |
+
+## API エンドポイント
+
+| Method | パス | 用途 |
+|--------|------|------|
+| GET | `/api/runtime` | ランタイム情報 |
+| GET | `/api/health` | エージェント生存確認＋PIN取得（PIN回復に使用） |
+| GET | `/api/pairing` | ペアリング情報（PIN桁数等） |
+| GET | `/api/commands` | コマンド一覧 |
+| POST | `/api/admin/login` | 管理者PINログイン |
+| GET | `/api/admin/state` | 管理画面状態取得（要admin token） |
+| POST | `/api/admin/commands` | 登録アプリ保存（要admin token） |
+| POST | `/api/admin/pin/rotate` | PIN再発行（要admin token） |
+| GET | `/api/admin/icon` | アプリアイコン取得（要admin token） |
+| GET | `/ws/agent` | Macエージェント用WebSocket |
+| GET | `/` (WS upgrade) | iPhoneクライアント用WebSocket |
 
 ## ローカル開発
 

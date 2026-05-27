@@ -85,20 +85,28 @@ AGENT_TOKEN=xxx
 スクリプトは以下を自動実行:
 1. `~/.left-controller/` ディレクトリ作成
 2. `mac-agent.js` をサーバーからダウンロード
-3. launchd plist を `~/Library/LaunchAgents/` に作成
-4. `launchctl load` でエージェント起動（Mac起動時に自動起動）
+3. `leftctl_minimize.swift` をダウンロードして `swiftc` でコンパイル → `~/.left-controller/leftctl-minimize`
+4. launchd plist を `~/Library/LaunchAgents/` に作成
+5. `launchctl load` でエージェント起動（Mac起動時に自動起動）
+
+> Swift helper はウィンドウ最小化（ダブルタップ機能 / 他アプリ最小化）に使用される。Xcode Command Line Tools の `swiftc` が必要。
 
 ## launchd plist（手動管理の場合）
 
-参考: [`launchd/com.hyuga.leftcontroller.mac-agent.plist.example`](../launchd/com.hyuga.leftcontroller.mac-agent.plist.example)
+実体: `~/Library/LaunchAgents/com.leftcontroller.mac-agent.plist`（mac-setup スクリプトが自動生成）
+参考サンプル: [`launchd/com.hyuga.leftcontroller.mac-agent.plist.example`](../launchd/com.hyuga.leftcontroller.mac-agent.plist.example)
 
 ```bash
-# 起動
-launchctl load ~/Library/LaunchAgents/com.leftcontroller.mac-agent.plist
-
-# 停止
+# 起動 / 停止
+launchctl load   ~/Library/LaunchAgents/com.leftcontroller.mac-agent.plist
 launchctl unload ~/Library/LaunchAgents/com.leftcontroller.mac-agent.plist
 
+# 再起動（ホットリロード）
+launchctl kickstart -k gui/$(id -u)/com.leftcontroller.mac-agent
+
+# 状態確認
+launchctl print gui/$(id -u)/com.leftcontroller.mac-agent | grep -E "state|pid"
+
 # ログ確認
-tail -f ~/.left-controller/logs/mac-agent.log
+tail -f ~/.left-controller/logs/*.log
 ```

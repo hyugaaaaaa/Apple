@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.hyuga.leftcontroller.mac-agent</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/hyuga/node/bin/node</string>
+    <string>/Users/hyuga/iphone-mac-left-controller/relay/mac-agent.js</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/hyuga/iphone-mac-left-controller</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>BROKER_WS_URL</key>
+    <string>wss://YOUR-RUN-APP-URL/ws/agent</string>
+    <key>AGENT_TOKEN</key>
+    <string>change-me</string>
+    <key>DEVICE_ID</key>
+    <string>hyuga-mac</string>
+    <key>DEVICE_NAME</key>
+    <string>HYUGA MacBook Pro</string>
+  </dict>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>KeepAlive</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>/Users/hyuga/iphone-mac-left-controller/logs/mac-agent.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>/Users/hyuga/iphone-mac-left-controller/logs/mac-agent.log</string>
+</dict>
+</plist>

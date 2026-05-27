@@ -73,6 +73,109 @@ async function submitAdminLogin() {
   }
 }
 
+// ── PIN 回復 ──────────────────────────────────────────────
+const SETUP_DEVICE_ID_KEY = 'left_controller_setup_device_id';
+
+function showPinRecovery() {
+  const formEl = document.getElementById('login-form-section');
+  const recEl  = document.getElementById('pin-recovery-section');
+  const devRow = document.getElementById('pin-recovery-device-row');
+  const errEl  = document.getElementById('pin-recovery-error');
+  const resEl  = document.getElementById('pin-recovery-result');
+
+  if (formEl) formEl.style.display = 'none';
+  if (recEl)  recEl.style.display  = 'flex';
+  if (errEl)  errEl.textContent    = '';
+  if (resEl)  resEl.style.display  = 'none';
+
+  const storedId = localStorage.getItem(SETUP_DEVICE_ID_KEY) || '';
+  if (storedId) {
+    // デバイスIDが保存済み → 入力欄を隠して自動フェッチ
+    if (devRow) devRow.style.display = 'none';
+    fetchRecoveryPin();
+  } else {
+    // デバイスIDが不明 → 入力欄を表示
+    if (devRow) devRow.style.display = 'flex';
+    const inp = document.getElementById('pin-recovery-device-input');
+    if (inp) inp.focus();
+  }
+}
+
+function hidePinRecovery() {
+  const formEl = document.getElementById('login-form-section');
+  const recEl  = document.getElementById('pin-recovery-section');
+  if (formEl) formEl.style.display = 'flex';
+  if (recEl)  recEl.style.display  = 'none';
+}
+
+async function fetchRecoveryPin() {
+  const btn    = document.getElementById('pin-recovery-btn');
+  const errEl  = document.getElementById('pin-recovery-error');
+  const resEl  = document.getElementById('pin-recovery-result');
+  const valEl  = document.getElementById('pin-recovery-value');
+  const devRow = document.getElementById('pin-recovery-device-row');
+
+  if (errEl) errEl.textContent = '';
+  if (resEl) resEl.style.display = 'none';
+  if (btn)   btn.disabled = true;
+
+  // デバイスID: localStorage優先、なければ入力欄の値
+  let deviceId = localStorage.getItem(SETUP_DEVICE_ID_KEY) || '';
+  if (!deviceId) {
+    const inp = document.getElementById('pin-recovery-device-input');
+    deviceId = (inp ? inp.value : '').trim();
+  }
+
+  if (!deviceId) {
+    if (errEl) errEl.textContent = 'デバイスIDを入力してください';
+    if (devRow) devRow.style.display = 'flex';
+    if (btn) btn.disabled = false;
+    return;
+  }
+
+  try {
+    const data = await fetch(
+      `/api/health?deviceId=${encodeURIComponent(deviceId)}`,
+      { cache: 'no-store' }
+    ).then(r => r.json());
+
+    const online = Array.isArray(data.agentsOnline) &&
+      data.agentsOnline.some(a => a.macId === deviceId);
+
+    if (online && data.pin) {
+      if (valEl) valEl.textContent = data.pin;
+      if (resEl) resEl.style.display = 'flex';
+    } else if (!online) {
+      if (errEl) errEl.textContent = 'Macがオフラインです。Macでエージェントを起動してから再試行してください。';
+      // デバイスID入力欄を表示して別のIDも試せるように
+      if (devRow) devRow.style.display = 'flex';
+    } else {
+      if (errEl) errEl.textContent = 'PINを取得できませんでした。';
+    }
+  } catch (err) {
+    if (errEl) errEl.textContent = `エラー: ${err.message}`;
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function copyRecoveryPin() {
+  const valEl  = document.getElementById('pin-recovery-value');
+  const copyBtn = document.getElementById('pin-recovery-copy');
+  const pin = valEl ? valEl.textContent.trim() : '';
+  if (!pin) return;
+  navigator.clipboard.writeText(pin).then(() => {
+    if (copyBtn) { copyBtn.textContent = 'コピー済み ✓'; }
+    setTimeout(() => { if (copyBtn) copyBtn.textContent = 'コピー'; }, 2000);
+  });
+}
+
+window.showPinRecovery = showPinRecovery;
+window.hidePinRecovery = hidePinRecovery;
+window.fetchRecoveryPin = fetchRecoveryPin;
+window.copyRecoveryPin = copyRecoveryPin;
+// ─────────────────────────────────────────────────────────
+
 const pinCodeEl = document.getElementById('pin-code');
 const pinNoteEl = document.getElementById('pin-note');
 const saveStatusEl = document.getElementById('save-status');
@@ -99,12 +202,10 @@ const modalTitleEl = document.querySelector('.modal-top span');
 const deviceNameEl = document.getElementById('device-name');
 const copyPinBtn = document.getElementById('copy-pin-btn');
 const rotatePinBtn = document.getElementById('rotate-pin-btn');
-const devicePinListEl = document.getElementById('device-pin-list');
-const DEVICE_ID_STORAGE_KEY = 'left_controller_device_id';
 
-const ITEMS_PER_PAGE = 8;
-const MAX_PAGES = 3;
-const MAX_REGISTERED_APPS = ITEMS_PER_PAGE * MAX_PAGES;
+const ITEMS_PER_PAGE = window.LeftController.LIMITS.itemsPerPage;
+const MAX_PAGES = window.LeftController.LIMITS.pages;
+const MAX_REGISTERED_APPS = window.LeftController.LIMITS.maxCommands;
 
 let apps = [];
 let slotPaths = Array(MAX_REGISTERED_APPS).fill(null);
@@ -115,34 +216,11 @@ let pinnedPage = 0;
 let replaceSlotIndex = null;
 let replaceCandidatePath = null;
 let currentPin = '';
-let currentDevicePins = [];
 let lastStateLoadedAt = 0;
 let stateRecoveryTimer = null;
 
-function getOrCreateDeviceId() {
-  const current = localStorage.getItem(DEVICE_ID_STORAGE_KEY) || '';
-  if (current) return current;
-  let next = '';
-  if (window.crypto && typeof window.crypto.randomUUID === 'function') {
-    next = window.crypto.randomUUID();
-  } else {
-    next = `dev-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-  }
-  localStorage.setItem(DEVICE_ID_STORAGE_KEY, next);
-  return next;
-}
-
-function buildDeviceName() {
-  const ua = navigator.userAgent || '';
-  if (/iPhone/i.test(ua)) return 'iPhone';
-  if (/iPad/i.test(ua)) return 'iPad';
-  if (/Android/i.test(ua)) return 'Android';
-  if (/Mac/i.test(ua)) return 'Mac Browser';
-  return 'Browser Device';
-}
-
-const myDeviceId = getOrCreateDeviceId();
-const myDeviceName = buildDeviceName();
+const myDeviceId = window.LeftController.getOrCreateDeviceId();
+const myDeviceName = window.LeftController.buildDeviceName();
 
 function fallbackIconDataUrl(name) {
   const letter = (String(name || 'A').trim().charAt(0) || 'A').toUpperCase();
@@ -213,37 +291,6 @@ function formatExpireAt(ts) {
   return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-function renderDevicePinList() {
-  if (!devicePinListEl) return;
-  devicePinListEl.innerHTML = '';
-
-  const list = Array.isArray(currentDevicePins) ? currentDevicePins : [];
-  if (list.length === 0) {
-    const empty = document.createElement('div');
-    empty.className = 'device-pin-item';
-    empty.innerHTML = '<span class="device-pin-name">端末別PINはまだ発行されていません</span><span class="device-pin-code">----</span>';
-    devicePinListEl.appendChild(empty);
-    return;
-  }
-
-  list.slice(0, 8).forEach((row) => {
-    const item = document.createElement('div');
-    item.className = 'device-pin-item';
-
-    const name = document.createElement('div');
-    name.className = 'device-pin-name';
-    const label = row.deviceName || row.deviceId || 'unknown-device';
-    name.textContent = `${label} (期限: ${formatExpireAt(row.expiresAt)})`;
-
-    const code = document.createElement('div');
-    code.className = 'device-pin-code';
-    code.textContent = String(row.pin || '----');
-
-    item.appendChild(name);
-    item.appendChild(code);
-    devicePinListEl.appendChild(item);
-  });
-}
 
 function shortName(name, max = 12) {
   if (name.length <= max) return name;
@@ -254,10 +301,6 @@ function filteredApps(baseQuery) {
   const q = (baseQuery || '').trim().toLowerCase();
   if (!q) return apps;
   return apps.filter((a) => a.name.toLowerCase().includes(q));
-}
-
-function selectedApps() {
-  return apps.filter((a) => a.selected);
 }
 
 function selectedCount() {
@@ -622,6 +665,11 @@ function applyReplaceSelection() {
 }
 
 async function loadState() {
+  // トークンがなければ 401 を出さずにそのままログインモーダルを表示する
+  if (!getAdminToken()) {
+    showAdminLoginModal();
+    return;
+  }
   const qs = new URLSearchParams({
     deviceId: myDeviceId,
     deviceName: myDeviceName
@@ -642,15 +690,14 @@ async function loadState() {
   const data = await res.json();
   if (!data.ok) throw new Error(data.message || '状態の取得に失敗しました');
 
+  // 認証済みで状態が取得できた場合はログインモーダルを確実に閉じる
+  hideAdminLoginModal();
+
   apps = Array.isArray(data.apps) ? data.apps : [];
-  slotPaths = normalizeSlotPaths(Array.isArray(data.selectedSlots) ? data.selectedSlots : data.selectedApps);
+  slotPaths = normalizeSlotPaths(Array.isArray(data.selectedSlots) ? data.selectedSlots : []);
   syncSelectedFlagsFromSlots();
 
-  currentPin = String(data.pin || data.sharedPin || '');
-  currentDevicePins = Array.isArray(data.devicePins) ? data.devicePins : [];
-  if (devicePinListEl) {
-    devicePinListEl.style.display = 'none';
-  }
+  currentPin = String(data.pin || '');
   pinCodeEl.textContent = data.requirePin ? currentPin : 'PIN無効';
   if (deviceNameEl) {
     deviceNameEl.textContent = `デバイス: ${data.deviceName || 'unknown'}`;
@@ -665,8 +712,6 @@ async function loadState() {
     rotatePinBtn.disabled = false;
     rotatePinBtn.title = '新しいPINを発行';
   }
-
-  renderDevicePinList();
 
   renderPinned();
   lastStateLoadedAt = Date.now();
@@ -700,7 +745,6 @@ async function ensureAppsReadyForModal(force = false) {
 }
 
 async function saveSelection() {
-  const selectedApps = selectedPathsInSlotOrder().slice(0, MAX_REGISTERED_APPS);
   const selectedSlots = slotPaths.slice(0, MAX_REGISTERED_APPS);
   saveBtn.disabled = true;
   setStatus('保存中...', null);
@@ -709,7 +753,7 @@ async function saveSelection() {
     const res = await fetch('/api/admin/commands', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...adminAuthHeaders() },
-      body: JSON.stringify({ selectedApps, selectedSlots })
+      body: JSON.stringify({ selectedSlots })
     });
     if (res.status === 401) {
       showAdminLoginModal();
@@ -750,8 +794,6 @@ async function rotatePin() {
     currentPin = String(data.pin || '');
     pinCodeEl.textContent = currentPin;
     pinNoteEl.textContent = '共通PINを再発行しました。端末側で再度PIN取得してください。';
-    currentDevicePins = [];
-    renderDevicePinList();
     if (deviceNameEl) {
       deviceNameEl.textContent = `デバイス: ${data.deviceName || 'unknown'}`;
     }

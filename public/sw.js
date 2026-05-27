@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_VERSION = 'v56';
+const CACHE_VERSION = 'v68';
 const CACHE_NAME = `left-controller-cache-${CACHE_VERSION}`;
 const APP_SHELL = [
   '/',
@@ -12,6 +12,7 @@ const APP_SHELL = [
   '/style.css',
   '/controller-layout.css',
   '/controller-orientation.css',
+  '/common.js',
   '/auth.js',
   '/controller.js',
   '/admin.js',

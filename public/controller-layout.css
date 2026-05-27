@@ -137,6 +137,16 @@ body.controller-theme .pad-btn.holding {
   box-shadow: 0 0 0 3px rgba(255, 195, 96, 0.75) !important;
 }
 
+@keyframes minimizing-flash {
+  0%   { opacity: 1; transform: scale(1); }
+  40%  { opacity: 0.35; transform: scale(0.82); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+body.controller-theme .pad-btn.minimizing {
+  animation: minimizing-flash 0.4s ease-out;
+}
+
 body.controller-theme .pad-placeholder {
   background: transparent;
   border: 0;

@@ -22,6 +22,7 @@ const DEFAULT_MAC_ID = String(process.env.DEFAULT_MAC_ID || '').trim();
 const APP_PIN_SEED = String(process.env.APP_PIN || '').trim();
 const MAC_PINS_SEED = String(process.env.MAC_PINS || '').trim();
 
+// NOTE: Must match public/common.js LIMITS.
 const ITEMS_PER_PAGE = 8;
 const MAX_PAGES = 3;
 const MAX_COMMANDS = ITEMS_PER_PAGE * MAX_PAGES;
@@ -314,12 +315,18 @@ function buildCommands(macId) {
   return commands.slice(0, MAX_COMMANDS);
 }
 
-async function executeCommand(macId, commandId) {
+async function executeCommand(macId, commandId, { minimize = false } = {}) {
   const command = buildCommands(macId).find((c) => c.id === commandId);
   if (!command) return { ok: false, message: 'unknown_command' };
   if (!isAgentOnline(macId)) return { ok: false, message: 'agent_offline' };
+
+  // ダブルタップ最小化: action.type を minimize_app に上書き
+  const rpcCommand = minimize && command.action?.type === 'open_app'
+    ? { ...command, action: { ...command.action, type: 'minimize_app' } }
+    : command;
+
   try {
-    const result = await requestAgentRpc(macId, 'execute_command', { command }, 15000);
+    const result = await requestAgentRpc(macId, 'execute_command', { command: rpcCommand }, 15000);
     return { ok: result?.ok !== false, message: result?.message || 'ok' };
   } catch (err) {
     return { ok: false, message: err.message };
@@ -414,6 +421,16 @@ function verifyAdminToken(req) {
   return session.macId;
 }
 
+// Returns macId on success, or null after responding with 401.
+function requireAdmin(req, res) {
+  const macId = verifyAdminToken(req);
+  if (!macId) {
+    sendJson(res, 401, { ok: false, message: 'admin_auth_required' });
+    return null;
+  }
+  return macId;
+}
+
 // =========================================================
 // HTTP helpers
 // =========================================================
@@ -488,10 +505,14 @@ async function handleApi(req, res, url) {
   if (url.pathname === '/api/health' && req.method === 'GET') {
     const queryDeviceId = normalizeDeviceId(url.searchParams.get('deviceId') || '');
     if (queryDeviceId) {
-      // 特定デバイスの接続確認のみ返す（mac-setup用）
+      // 特定デバイスの接続確認（mac-setup用）。オンラインならPINも返してセットアップ画面で表示できるようにする
+      const online = isAgentOnline(queryDeviceId);
+      const config = online ? macConfigs.get(queryDeviceId) : null;
       sendJson(res, 200, {
         ok: true,
-        agentsOnline: isAgentOnline(queryDeviceId) ? [{ macId: queryDeviceId }] : [],
+        agentsOnline: online ? [{ macId: queryDeviceId }] : [],
+        pin: config?.pin || null,
+        deviceName: online ? (agents.get(queryDeviceId)?.deviceName || queryDeviceId) : null,
         now: new Date().toISOString()
       });
     } else {
@@ -610,8 +631,8 @@ async function handleApi(req, res, url) {
   // ---- Admin: authenticated routes ----
 
   if (url.pathname === '/api/admin/pin/rotate' && req.method === 'POST') {
-    const macId = verifyAdminToken(req);
-    if (!macId) { sendJson(res, 401, { ok: false, message: 'admin_auth_required' }); return true; }
+    const macId = requireAdmin(req, res);
+    if (!macId) return true;
     const pin = rotateMacPin(macId);
     if (!pin) { sendJson(res, 404, { ok: false, message: 'mac_not_found' }); return true; }
     sendJson(res, 200, { ok: true, pin, macId, deviceName: agents.get(macId)?.deviceName || macId });
@@ -619,8 +640,8 @@ async function handleApi(req, res, url) {
   }
 
   if (url.pathname === '/api/admin/state' && req.method === 'GET') {
-    const macId = verifyAdminToken(req);
-    if (!macId) { sendJson(res, 401, { ok: false, message: 'admin_auth_required' }); return true; }
+    const macId = requireAdmin(req, res);
+    if (!macId) return true;
 
     try { await refreshAppsFromAgent(macId, true); } catch { /* use cache */ }
 
@@ -652,7 +673,6 @@ async function handleApi(req, res, url) {
       requirePin: REQUIRE_PIN,
       limits: { itemsPerPage: ITEMS_PER_PAGE, pages: MAX_PAGES, maxCommands: MAX_COMMANDS },
       selectedSlots: config.selectedSlots,
-      selectedApps: config.selectedSlots.filter(Boolean),
       apps,
       agentOnline: isAgentOnline(macId)
     });
@@ -660,11 +680,11 @@ async function handleApi(req, res, url) {
   }
 
   if (url.pathname === '/api/admin/commands' && req.method === 'POST') {
-    const macId = verifyAdminToken(req);
-    if (!macId) { sendJson(res, 401, { ok: false, message: 'admin_auth_required' }); return true; }
+    const macId = requireAdmin(req, res);
+    if (!macId) return true;
     try {
       const body = await readJsonBody(req);
-      const raw = Array.isArray(body.selectedSlots) ? body.selectedSlots : (Array.isArray(body.selectedApps) ? body.selectedApps : []);
+      const raw = Array.isArray(body.selectedSlots) ? body.selectedSlots : [];
       const next = raw.map((v) => (v ? String(v).trim() : null)).slice(0, MAX_COMMANDS);
       while (next.length < MAX_COMMANDS) next.push(null);
       const seen = new Set();
@@ -680,7 +700,6 @@ async function handleApi(req, res, url) {
       sendJson(res, 200, {
         ok: true,
         selectedSlots: config.selectedSlots,
-        selectedApps: config.selectedSlots.filter(Boolean),
         count: buildCommands(macId).length,
         maxCount: MAX_COMMANDS
       });
@@ -895,7 +914,8 @@ function handleClientConnection(ws, req) {
 
     if (payload.type === 'run_command' || payload.type === 'command') {
       const commandId = String(payload.command || '').trim();
-      const result = await executeCommand(ws.macId, commandId);
+      const minimize = payload.minimize === true;
+      const result = await executeCommand(ws.macId, commandId, { minimize });
       ws.send(JSON.stringify({
         type: 'command_result',
         command: commandId,
@@ -927,6 +947,14 @@ const server = http.createServer(async (req, res) => {
     fs.readFile(path.join(__dirname, 'mac-agent.js'), (err, data) => {
       if (err) { res.writeHead(404); res.end('Not Found'); return; }
       res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8' });
+      res.end(data);
+    });
+    return;
+  }
+  if (url.pathname === '/leftctl_minimize.swift' && req.method === 'GET') {
+    fs.readFile(path.join(__dirname, 'leftctl_minimize.swift'), (err, data) => {
+      if (err) { res.writeHead(404); res.end('Not Found'); return; }
+      res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
       res.end(data);
     });
     return;
@@ -998,6 +1026,23 @@ loadData();
     }
   }
 })();
+
+// Cloud Run は停止時に SIGTERM を送る。インフライトのRPCが中断される前に
+// 既存セッションをクリーンアップしてからプロセスを終了する
+function gracefulShutdown(signal) {
+  console.log(`[RELAY] ${signal} received, shutting down...`);
+  server.close(() => {
+    console.log('[RELAY] HTTP server closed');
+    process.exit(0);
+  });
+  // 10秒以内に終了しない場合は強制終了
+  setTimeout(() => {
+    console.error('[RELAY] Forced exit after timeout');
+    process.exit(1);
+  }, 10000).unref();
+}
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT',  () => gracefulShutdown('SIGINT'));
 
 server.listen(PORT, () => {
   console.log('========================================');

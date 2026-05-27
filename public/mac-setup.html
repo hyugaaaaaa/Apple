@@ -160,6 +160,27 @@
     .status-msg strong { display: block; font-size: 15px; }
     .status-msg span { font-size: 13px; color: var(--fg-muted); }
 
+    .pin-box {
+      display: none;
+      border: 1px solid rgba(255,255,255,.2);
+      border-radius: 14px;
+      padding: 20px;
+      margin-top: 20px;
+      background: rgba(255,255,255,.05);
+    }
+    .pin-box.show { display: block; }
+    .pin-label { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--fg-muted); margin-bottom: 10px; }
+    .pin-value {
+      font-size: 38px;
+      font-weight: 800;
+      letter-spacing: .16em;
+      color: #fff;
+      font-variant-numeric: tabular-nums;
+    }
+    .pin-note { font-size: 13px; color: var(--fg-muted); margin-top: 8px; line-height: 1.6; }
+    .pin-copy-row { display: flex; gap: 10px; margin-top: 12px; }
+    .pin-copy-row .cb-copy { flex: 1; }
+
     .btn {
       width: 100%;
       appearance: none;
@@ -167,15 +188,16 @@
       border-radius: 999px;
       background: rgba(255,255,255,.08);
       color: var(--fg);
-      font-size: 17px;
+      font-size: clamp(14px, 4.2vw, 17px);
       font-weight: 600;
       font-family: inherit;
       min-height: 54px;
-      padding: 12px 24px;
+      padding: 12px 20px;
       cursor: pointer;
       transition: background 160ms, transform 160ms, opacity 160ms;
       text-align: center;
       display: block;
+      white-space: nowrap;
     }
     .btn:active { transform: scale(.985); }
     .btn.primary { background: var(--fg); color: var(--bg); border-color: transparent; }
@@ -241,6 +263,15 @@
           <span id="stat-desc">スクリプトを実行すると自動で検出されます</span>
         </div>
       </div>
+
+      <div class="pin-box" id="pin-box">
+        <p class="pin-label">あなたの接続PIN</p>
+        <div class="pin-value" id="pin-display">——</div>
+        <p class="pin-note">このPINをiPhoneの認証画面と管理画面のログインに使用します。メモしておいてください。</p>
+        <div class="pin-copy-row">
+          <button class="cb-copy" id="pin-copy-btn" onclick="copyPin()">PINをコピー</button>
+        </div>
+      </div>
     </div>
     <div class="footer">
       <button class="btn primary" id="admin-btn" onclick="goAdmin()" disabled>管理画面へ進む</button>
@@ -292,6 +323,7 @@
     const host = location.host;
     const wsUrl = `wss://${host}/ws/agent`;
     const agentUrl = `https://${host}/mac-agent.js`;
+    const minimizeSwiftUrl = `https://${host}/leftctl_minimize.swift`;
 
     const script = `#!/bin/bash
 set -e
@@ -337,6 +369,18 @@ mkdir -p "$INSTALL_DIR/logs" "$PLIST_DIR"
 # ── エージェント本体をダウンロード ───────────────────────────
 echo "→ エージェントをダウンロード..."
 curl -fsSL '${agentUrl}' -o "$INSTALL_DIR/mac-agent.js"
+
+# ── 最小化ヘルパー（Swift）をコンパイル ──────────────────────
+echo "→ 最小化ヘルパーをビルド..."
+if command -v swiftc &>/dev/null; then
+  curl -fsSL '${minimizeSwiftUrl}' -o "/tmp/leftctl_minimize.swift"
+  swiftc /tmp/leftctl_minimize.swift -o "$INSTALL_DIR/leftctl-minimize" 2>/dev/null \
+    && echo "   ✓ leftctl-minimize をビルドしました" \
+    || echo "   ⚠ ビルド失敗（ダブルタップ最小化は一部アプリで動作しません）"
+  rm -f /tmp/leftctl_minimize.swift
+else
+  echo "   ⚠ swiftcが見つかりません（ダブルタップ最小化は一部アプリで動作しません）"
+fi
 
 # ── 依存パッケージをインストール ─────────────────────────────
 echo "→ 依存パッケージをインストール (ws)..."
@@ -428,9 +472,19 @@ echo "  ログ: $INSTALL_DIR/logs/mac-agent.log"
       if (online) {
         dot.className = 'dot ok';
         title.textContent = '接続済み ✓';
-        desc.textContent  = `${deviceId} が接続されています`;
+        desc.textContent  = `${data.deviceName || deviceId} が接続されています`;
         btn.disabled = false;
         localStorage.setItem('left_controller_mac_setup_done', '1');
+        localStorage.setItem('left_controller_setup_device_id', deviceId);
+
+        // PINを表示
+        if (data.pin) {
+          const pinBox = document.getElementById('pin-box');
+          const pinDisplay = document.getElementById('pin-display');
+          if (pinBox) pinBox.classList.add('show');
+          if (pinDisplay) pinDisplay.textContent = data.pin;
+          window.__setupPin = data.pin;
+        }
         return;
       }
     } catch { /* ignore */ }
@@ -449,6 +503,17 @@ echo "  ログ: $INSTALL_DIR/logs/mac-agent.log"
 
   function goAdmin() { location.href = '/admin'; }
   window.goAdmin = goAdmin;
+
+  function copyPin() {
+    const pin = window.__setupPin || document.getElementById('pin-display')?.textContent || '';
+    if (!pin || pin === '——') return;
+    const btn = document.getElementById('pin-copy-btn');
+    navigator.clipboard.writeText(pin).then(() => {
+      if (btn) { btn.textContent = 'コピー済み ✓'; btn.classList.add('ok'); }
+      setTimeout(() => { if (btn) { btn.textContent = 'PINをコピー'; btn.classList.remove('ok'); } }, 2000);
+    });
+  }
+  window.copyPin = copyPin;
 
   function copyEl(id, btn) {
     navigator.clipboard.writeText(document.getElementById(id).textContent).then(() => {

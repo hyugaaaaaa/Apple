@@ -3,17 +3,8 @@
 const UNLOCK_KEY = 'left_controller_unlocked';
 const TOKEN_STORAGE_KEY = 'left_controller_token';
 const TOKEN_EXPIRES_KEY = 'left_controller_token_expires';
-const DEVICE_ID_STORAGE_KEY = 'left_controller_device_id';
 
-function resolveWsUrl() {
-  if (window.location.protocol === 'file:') {
-    return 'ws://localhost:8080';
-  }
-  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${wsProtocol}//${window.location.host}`;
-}
-
-const wsUrl = resolveWsUrl();
+const wsUrl = window.LeftController.resolveWsUrl();
 
 const authScreenStatusEl = document.getElementById('auth-screen-status');
 const pairingHintEl = document.getElementById('pairing-hint');
@@ -27,30 +18,8 @@ let authPending = false;
 let authRetryTimer = null;
 let pinPolicy = { minDigits: 6, maxDigits: 8 };
 
-function getOrCreateDeviceId() {
-  const current = localStorage.getItem(DEVICE_ID_STORAGE_KEY) || '';
-  if (current) return current;
-
-  let next = '';
-  if (window.crypto && typeof window.crypto.randomUUID === 'function') {
-    next = window.crypto.randomUUID();
-  } else {
-    next = `dev-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-  }
-  localStorage.setItem(DEVICE_ID_STORAGE_KEY, next);
-  return next;
-}
-
-function buildDeviceName() {
-  const ua = navigator.userAgent || '';
-  if (/iPhone/i.test(ua)) return 'iPhone';
-  if (/iPad/i.test(ua)) return 'iPad';
-  if (/Android/i.test(ua)) return 'Android';
-  return 'Browser Device';
-}
-
-const deviceId = getOrCreateDeviceId();
-const deviceName = buildDeviceName();
+const deviceId = window.LeftController.getOrCreateDeviceId();
+const deviceName = window.LeftController.buildDeviceName();
 
 function getStoredToken() {
   const token = sessionStorage.getItem(TOKEN_STORAGE_KEY) || '';
@@ -218,8 +187,6 @@ function connectWebSocket() {
         sessionStorage.removeItem(UNLOCK_KEY);
         if (data.reason === 'locked' && data.retryAfterSeconds) {
           setAuthScreenStatus(`ロック中: ${data.retryAfterSeconds}秒後に再試行`, false);
-        } else if (data.reason === 'pin_other_device') {
-          setAuthScreenStatus(data.message || 'このPINは別端末用です。自分の端末で発行されたPINを入力してください。', false);
         } else {
           setAuthScreenStatus('認証エラー', false);
         }

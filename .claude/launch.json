@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "left-controller",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["relay/broker.js"],
+      "port": 3456
+    }
+  ]
+}
