@@ -532,257 +532,273 @@ function serveStatic(req, res, url) {
 // API handlers
 // =========================================================
 
-async function handleApi(req, res, url) {
-  if (url.pathname === '/api/runtime' && req.method === 'GET') {
-    sendJson(res, 200, { ok: true, debugUi: DEBUG_UI, env: process.env.NODE_ENV || 'development' });
-    return true;
-  }
+// ---- API handlers (one per route; each sends a response and returns true) ----
 
-  if (url.pathname === '/api/health' && req.method === 'GET') {
-    const queryDeviceId = normalizeDeviceId(url.searchParams.get('deviceId') || '');
-    if (queryDeviceId) {
-      // 特定デバイスの接続確認（mac-setup用）。オンラインならPINも返してセットアップ画面で表示できるようにする
-      const online = isAgentOnline(queryDeviceId);
-      const config = online ? macConfigs.get(queryDeviceId) : null;
-      sendJson(res, 200, {
-        ok: true,
-        agentsOnline: online ? [{ macId: queryDeviceId }] : [],
-        pin: config?.pin || null,
-        deviceName: online ? (agents.get(queryDeviceId)?.deviceName || queryDeviceId) : null,
-        now: new Date().toISOString()
-      });
-    } else {
-      // デバイス詳細は返さず台数のみ
-      const onlineCount = Array.from(agents.values())
-        .filter((a) => a.ws && a.ws.readyState === WebSocket.OPEN).length;
-      sendJson(res, 200, { ok: true, agentsOnline: onlineCount, now: new Date().toISOString() });
-    }
-    return true;
-  }
+function apiRuntime(req, res) {
+  sendJson(res, 200, { ok: true, debugUi: DEBUG_UI, env: process.env.NODE_ENV || 'development' });
+  return true;
+}
 
-  if (url.pathname === '/api/pairing' && req.method === 'GET') {
-    const clientIp = normalizeClientIp(req);
-    const deviceId = normalizeDeviceId(url.searchParams.get('deviceId'));
-    const pinStr = String(url.searchParams.get('pin') || '').trim();
-
-    let macId = null;
-
-    if (pinStr) {
-      macId = findMacByPin(pinStr);
-    }
-
+function apiHealth(req, res, url) {
+  const queryDeviceId = normalizeDeviceId(url.searchParams.get('deviceId') || '');
+  if (queryDeviceId) {
+    // 特定デバイスの接続確認（mac-setup用）。オンラインならPINも返してセットアップ画面で表示できるようにする
+    const online = isAgentOnline(queryDeviceId);
+    const config = online ? macConfigs.get(queryDeviceId) : null;
     sendJson(res, 200, {
       ok: true,
-      requirePin: REQUIRE_PIN,
-      deviceId: deviceId || '',
-      clientIp,
-      pinPolicy: {
-        minDigits: 4,
-        maxDigits: 8,
-        maxAttempts: PIN_MAX_ATTEMPTS,
-        lockSeconds: Math.floor(PIN_LOCK_MS / 1000),
-        sessionHours: Math.floor(SESSION_TOKEN_TTL_MS / (60 * 60 * 1000))
-      },
-      agentOnline: macId ? isAgentOnline(macId) : false,
-      deviceName: macId ? (agents.get(macId)?.deviceName || macId) : null
+      agentsOnline: online ? [{ macId: queryDeviceId }] : [],
+      pin: config?.pin || null,
+      deviceName: online ? (agents.get(queryDeviceId)?.deviceName || queryDeviceId) : null,
+      now: new Date().toISOString()
+    });
+  } else {
+    // デバイス詳細は返さず台数のみ
+    const onlineCount = Array.from(agents.values())
+      .filter((a) => a.ws && a.ws.readyState === WebSocket.OPEN).length;
+    sendJson(res, 200, { ok: true, agentsOnline: onlineCount, now: new Date().toISOString() });
+  }
+  return true;
+}
+
+function apiPairing(req, res, url) {
+  const clientIp = normalizeClientIp(req);
+  const deviceId = normalizeDeviceId(url.searchParams.get('deviceId'));
+  const pinStr = String(url.searchParams.get('pin') || '').trim();
+
+  let macId = null;
+
+  if (pinStr) {
+    macId = findMacByPin(pinStr);
+  }
+
+  sendJson(res, 200, {
+    ok: true,
+    requirePin: REQUIRE_PIN,
+    deviceId: deviceId || '',
+    clientIp,
+    pinPolicy: {
+      minDigits: 4,
+      maxDigits: 8,
+      maxAttempts: PIN_MAX_ATTEMPTS,
+      lockSeconds: Math.floor(PIN_LOCK_MS / 1000),
+      sessionHours: Math.floor(SESSION_TOKEN_TTL_MS / (60 * 60 * 1000))
+    },
+    agentOnline: macId ? isAgentOnline(macId) : false,
+    deviceName: macId ? (agents.get(macId)?.deviceName || macId) : null
+  });
+  return true;
+}
+
+function apiCommands(req, res) {
+  const authHeader = String(req.headers.authorization || '').trim();
+  let macId = null;
+  if (authHeader.startsWith('Bearer ')) {
+    const clientIp = normalizeClientIp(req);
+    const result = verifySessionToken(authHeader.slice(7).trim(), clientIp);
+    if (result.ok) macId = result.macId;
+  }
+  const commands = macId ? buildCommands(macId) : [];
+  sendJson(res, 200, { ok: true, version: 1, commands });
+  return true;
+}
+
+async function apiAdminLogin(req, res) {
+  const clientIp = normalizeClientIp(req);
+  const adminAttemptKey = getPinAttemptKey(clientIp, 'admin');
+  const adminAttemptState = getPinAttemptState(adminAttemptKey);
+
+  if (adminAttemptState.lockUntil && Date.now() < adminAttemptState.lockUntil) {
+    sendJson(res, 429, {
+      ok: false,
+      message: 'too_many_attempts',
+      retryAfterSeconds: Math.ceil((adminAttemptState.lockUntil - Date.now()) / 1000)
     });
     return true;
   }
 
-  if (url.pathname === '/api/commands' && req.method === 'GET') {
-    const authHeader = String(req.headers.authorization || '').trim();
-    let macId = null;
-    if (authHeader.startsWith('Bearer ')) {
-      const clientIp = normalizeClientIp(req);
-      const result = verifySessionToken(authHeader.slice(7).trim(), clientIp);
-      if (result.ok) macId = result.macId;
+  try {
+    const body = await readJsonBody(req);
+    const inputPin = normalizePin(body.pin);
+
+    if (!REQUIRE_PIN) {
+      // PIN無効モード: 最初に接続しているMacの管理者として発行
+      const firstMacId = agents.keys().next().value || macConfigs.keys().next().value;
+      if (!firstMacId) {
+        sendJson(res, 503, { ok: false, message: 'no_mac_connected' });
+        return true;
+      }
+      const token = issueAdminToken(firstMacId);
+      sendJson(res, 200, { ok: true, token, macId: firstMacId, expiresAt: Date.now() + ADMIN_SESSION_TTL_MS });
+      return true;
     }
-    const commands = macId ? buildCommands(macId) : [];
-    sendJson(res, 200, { ok: true, version: 1, commands });
-    return true;
-  }
 
-  // ---- Admin: login (public) ----
-
-  if (url.pathname === '/api/admin/login' && req.method === 'POST') {
-    const clientIp = normalizeClientIp(req);
-    const adminAttemptKey = getPinAttemptKey(clientIp, 'admin');
-    const adminAttemptState = getPinAttemptState(adminAttemptKey);
-
-    if (adminAttemptState.lockUntil && Date.now() < adminAttemptState.lockUntil) {
-      sendJson(res, 429, {
+    const macId = findMacByPin(inputPin);
+    if (!macId) {
+      const next = registerPinFailure(adminAttemptKey);
+      sendJson(res, 401, {
         ok: false,
-        message: 'too_many_attempts',
-        retryAfterSeconds: Math.ceil((adminAttemptState.lockUntil - Date.now()) / 1000)
+        message: 'invalid_pin',
+        retryAfterSeconds: next.lockUntil ? Math.ceil((next.lockUntil - Date.now()) / 1000) : 0
       });
       return true;
     }
 
-    try {
-      const body = await readJsonBody(req);
-      const inputPin = normalizePin(body.pin);
-
-      if (!REQUIRE_PIN) {
-        // PIN無効モード: 最初に接続しているMacの管理者として発行
-        const firstMacId = agents.keys().next().value || macConfigs.keys().next().value;
-        if (!firstMacId) {
-          sendJson(res, 503, { ok: false, message: 'no_mac_connected' });
-          return true;
-        }
-        const token = issueAdminToken(firstMacId);
-        sendJson(res, 200, { ok: true, token, macId: firstMacId, expiresAt: Date.now() + ADMIN_SESSION_TTL_MS });
-        return true;
-      }
-
-      const macId = findMacByPin(inputPin);
-      if (!macId) {
-        const next = registerPinFailure(adminAttemptKey);
-        sendJson(res, 401, {
-          ok: false,
-          message: 'invalid_pin',
-          retryAfterSeconds: next.lockUntil ? Math.ceil((next.lockUntil - Date.now()) / 1000) : 0
-        });
-        return true;
-      }
-
-      clearPinFailures(adminAttemptKey);
-      const token = issueAdminToken(macId);
-      const config = macConfigs.get(macId);
-      sendJson(res, 200, {
-        ok: true,
-        token,
-        macId,
-        expiresAt: Date.now() + ADMIN_SESSION_TTL_MS,
-        deviceName: agents.get(macId)?.deviceName || macId,
-        weakPin: String(config?.pin || '').length <= 4
-      });
-    } catch (err) {
-      sendJson(res, 400, { ok: false, message: err.message });
-    }
-    return true;
-  }
-
-  // ---- Admin: authenticated routes ----
-
-  if (url.pathname === '/api/admin/pin/rotate' && req.method === 'POST') {
-    const macId = requireAdmin(req, res);
-    if (!macId) return true;
-    const pin = rotateMacPin(macId);
-    if (!pin) { sendJson(res, 404, { ok: false, message: 'mac_not_found' }); return true; }
-    sendJson(res, 200, { ok: true, pin, macId, deviceName: agents.get(macId)?.deviceName || macId });
-    return true;
-  }
-
-  if (url.pathname === '/api/admin/state' && req.method === 'GET') {
-    const macId = requireAdmin(req, res);
-    if (!macId) return true;
-
-    try { await refreshAppsFromAgent(macId, true); } catch { /* use cache */ }
-
-    const config = getOrCreateMacConfig(macId);
-    const agent = agents.get(macId);
-    const selectedSet = new Set(config.selectedSlots.filter(Boolean));
-    const apps = (agent?.appsCache || []).map((app) => ({
-      path: app.path,
-      name: app.name,
-      iconUrl: `/api/admin/icon?path=${encodeURIComponent(app.path)}`,
-      selected: selectedSet.has(app.path)
-    }));
-
+    clearPinFailures(adminAttemptKey);
+    const token = issueAdminToken(macId);
+    const config = macConfigs.get(macId);
     sendJson(res, 200, {
       ok: true,
+      token,
       macId,
-      pin: config.pin,
-      pinSource: config.pinSource,
-      deviceName: agent?.deviceName || macId,
-      pinLength: config.pin.length,
-      pinPolicy: {
-        minDigits: 4,
-        maxDigits: 8,
-        maxAttempts: PIN_MAX_ATTEMPTS,
-        lockSeconds: Math.floor(PIN_LOCK_MS / 1000),
-        sessionHours: Math.floor(SESSION_TOKEN_TTL_MS / (60 * 60 * 1000))
-      },
-      weakPin: config.pin.length <= 4,
-      requirePin: REQUIRE_PIN,
-      limits: { itemsPerPage: ITEMS_PER_PAGE, pages: MAX_PAGES, maxCommands: MAX_COMMANDS },
-      selectedSlots: config.selectedSlots,
-      apps,
-      agentOnline: isAgentOnline(macId),
-      agentVersion: agent?.version || null,
-      latestAgentVersion: LATEST_AGENT_VERSION,
-      agentOutdated: !!(agent?.version && LATEST_AGENT_VERSION !== 'unknown' && agent.version !== LATEST_AGENT_VERSION)
+      expiresAt: Date.now() + ADMIN_SESSION_TTL_MS,
+      deviceName: agents.get(macId)?.deviceName || macId,
+      weakPin: String(config?.pin || '').length <= 4
     });
+  } catch (err) {
+    sendJson(res, 400, { ok: false, message: err.message });
+  }
+  return true;
+}
+
+function apiAdminPinRotate(req, res) {
+  const macId = requireAdmin(req, res);
+  if (!macId) return true;
+  const pin = rotateMacPin(macId);
+  if (!pin) { sendJson(res, 404, { ok: false, message: 'mac_not_found' }); return true; }
+  sendJson(res, 200, { ok: true, pin, macId, deviceName: agents.get(macId)?.deviceName || macId });
+  return true;
+}
+
+async function apiAdminState(req, res) {
+  const macId = requireAdmin(req, res);
+  if (!macId) return true;
+
+  try { await refreshAppsFromAgent(macId, true); } catch { /* use cache */ }
+
+  const config = getOrCreateMacConfig(macId);
+  const agent = agents.get(macId);
+  const selectedSet = new Set(config.selectedSlots.filter(Boolean));
+  const apps = (agent?.appsCache || []).map((app) => ({
+    path: app.path,
+    name: app.name,
+    iconUrl: `/api/admin/icon?path=${encodeURIComponent(app.path)}`,
+    selected: selectedSet.has(app.path)
+  }));
+
+  sendJson(res, 200, {
+    ok: true,
+    macId,
+    pin: config.pin,
+    pinSource: config.pinSource,
+    deviceName: agent?.deviceName || macId,
+    pinLength: config.pin.length,
+    pinPolicy: {
+      minDigits: 4,
+      maxDigits: 8,
+      maxAttempts: PIN_MAX_ATTEMPTS,
+      lockSeconds: Math.floor(PIN_LOCK_MS / 1000),
+      sessionHours: Math.floor(SESSION_TOKEN_TTL_MS / (60 * 60 * 1000))
+    },
+    weakPin: config.pin.length <= 4,
+    requirePin: REQUIRE_PIN,
+    limits: { itemsPerPage: ITEMS_PER_PAGE, pages: MAX_PAGES, maxCommands: MAX_COMMANDS },
+    selectedSlots: config.selectedSlots,
+    apps,
+    agentOnline: isAgentOnline(macId),
+    agentVersion: agent?.version || null,
+    latestAgentVersion: LATEST_AGENT_VERSION,
+    agentOutdated: !!(agent?.version && LATEST_AGENT_VERSION !== 'unknown' && agent.version !== LATEST_AGENT_VERSION)
+  });
+  return true;
+}
+
+async function apiAdminCommands(req, res) {
+  const macId = requireAdmin(req, res);
+  if (!macId) return true;
+  try {
+    const body = await readJsonBody(req);
+    const raw = Array.isArray(body.selectedSlots) ? body.selectedSlots : [];
+    const next = raw.map((v) => (v ? String(v).trim() : null)).slice(0, MAX_COMMANDS);
+    while (next.length < MAX_COMMANDS) next.push(null);
+    const seen = new Set();
+    const deduped = next.map((p) => {
+      if (!p || seen.has(p)) return null;
+      seen.add(p);
+      return p;
+    });
+    const config = getOrCreateMacConfig(macId);
+    config.selectedSlots = deduped;
+    saveData();
+    notifyCommandsUpdated(macId);
+    sendJson(res, 200, {
+      ok: true,
+      selectedSlots: config.selectedSlots,
+      count: buildCommands(macId).length,
+      maxCount: MAX_COMMANDS
+    });
+  } catch (err) {
+    sendJson(res, 400, { ok: false, message: err.message });
+  }
+  return true;
+}
+
+async function apiAdminIcon(req, res, url) {
+  const appPath = String(url.searchParams.get('path') || '').trim();
+  if (!appPath) { sendFallbackIcon(res, '?'); return true; }
+
+  // Find which agent owns this path
+  let macId = null;
+  for (const [id, agent] of agents.entries()) {
+    if (agent.appsCache.some((a) => a.path === appPath)) { macId = id; break; }
+  }
+  if (!macId) { sendFallbackIcon(res, appPathToName(appPath)); return true; }
+
+  const agent = agents.get(macId);
+  const isKnownApp = (agent?.appsCache || []).some((a) => a.path === appPath);
+  if (!isKnownApp) { sendFallbackIcon(res, appPathToName(appPath)); return true; }
+
+  const cache = agent.iconCache.get(appPath);
+  if (cache) {
+    res.writeHead(200, { 'Content-Type': cache.mimeType || 'image/png', 'Cache-Control': 'public, max-age=600' });
+    res.end(cache.buffer);
     return true;
   }
-
-  if (url.pathname === '/api/admin/commands' && req.method === 'POST') {
-    const macId = requireAdmin(req, res);
-    if (!macId) return true;
-    try {
-      const body = await readJsonBody(req);
-      const raw = Array.isArray(body.selectedSlots) ? body.selectedSlots : [];
-      const next = raw.map((v) => (v ? String(v).trim() : null)).slice(0, MAX_COMMANDS);
-      while (next.length < MAX_COMMANDS) next.push(null);
-      const seen = new Set();
-      const deduped = next.map((p) => {
-        if (!p || seen.has(p)) return null;
-        seen.add(p);
-        return p;
-      });
-      const config = getOrCreateMacConfig(macId);
-      config.selectedSlots = deduped;
-      saveData();
-      notifyCommandsUpdated(macId);
-      sendJson(res, 200, {
-        ok: true,
-        selectedSlots: config.selectedSlots,
-        count: buildCommands(macId).length,
-        maxCount: MAX_COMMANDS
-      });
-    } catch (err) {
-      sendJson(res, 400, { ok: false, message: err.message });
-    }
-    return true;
+  try {
+    const result = await requestAgentRpc(macId, 'get_icon', { path: appPath }, 15000);
+    const base64 = String(result?.base64 || '');
+    const mimeType = String(result?.mimeType || 'image/png');
+    if (!base64) { sendFallbackIcon(res, appPathToName(appPath)); return true; }
+    const buffer = Buffer.from(base64, 'base64');
+    if (agent.iconCache.size > 500) agent.iconCache.clear();
+    agent.iconCache.set(appPath, { mimeType, buffer });
+    res.writeHead(200, { 'Content-Type': mimeType, 'Cache-Control': 'public, max-age=600' });
+    res.end(buffer);
+  } catch {
+    sendFallbackIcon(res, appPathToName(appPath));
   }
+  return true;
+}
 
-  if (url.pathname === '/api/admin/icon' && req.method === 'GET') {
-    const appPath = String(url.searchParams.get('path') || '').trim();
-    if (!appPath) { sendFallbackIcon(res, '?'); return true; }
+// Route table: first exact method+path match wins.
+const API_ROUTES = [
+  { method: 'GET',  path: '/api/runtime',          handler: apiRuntime },
+  { method: 'GET',  path: '/api/health',           handler: apiHealth },
+  { method: 'GET',  path: '/api/pairing',          handler: apiPairing },
+  { method: 'GET',  path: '/api/commands',         handler: apiCommands },
+  { method: 'POST', path: '/api/admin/login',      handler: apiAdminLogin },
+  { method: 'POST', path: '/api/admin/pin/rotate', handler: apiAdminPinRotate },
+  { method: 'GET',  path: '/api/admin/state',      handler: apiAdminState },
+  { method: 'POST', path: '/api/admin/commands',   handler: apiAdminCommands },
+  { method: 'GET',  path: '/api/admin/icon',       handler: apiAdminIcon }
+];
 
-    // Find which agent owns this path
-    let macId = null;
-    for (const [id, agent] of agents.entries()) {
-      if (agent.appsCache.some((a) => a.path === appPath)) { macId = id; break; }
+async function handleApi(req, res, url) {
+  for (const route of API_ROUTES) {
+    if (url.pathname === route.path && req.method === route.method) {
+      return route.handler(req, res, url);
     }
-    if (!macId) { sendFallbackIcon(res, appPathToName(appPath)); return true; }
-
-    const agent = agents.get(macId);
-    const isKnownApp = (agent?.appsCache || []).some((a) => a.path === appPath);
-    if (!isKnownApp) { sendFallbackIcon(res, appPathToName(appPath)); return true; }
-
-    const cache = agent.iconCache.get(appPath);
-    if (cache) {
-      res.writeHead(200, { 'Content-Type': cache.mimeType || 'image/png', 'Cache-Control': 'public, max-age=600' });
-      res.end(cache.buffer);
-      return true;
-    }
-    try {
-      const result = await requestAgentRpc(macId, 'get_icon', { path: appPath }, 15000);
-      const base64 = String(result?.base64 || '');
-      const mimeType = String(result?.mimeType || 'image/png');
-      if (!base64) { sendFallbackIcon(res, appPathToName(appPath)); return true; }
-      const buffer = Buffer.from(base64, 'base64');
-      if (agent.iconCache.size > 500) agent.iconCache.clear();
-      agent.iconCache.set(appPath, { mimeType, buffer });
-      res.writeHead(200, { 'Content-Type': mimeType, 'Cache-Control': 'public, max-age=600' });
-      res.end(buffer);
-    } catch {
-      sendFallbackIcon(res, appPathToName(appPath));
-    }
-    return true;
   }
-
   return false;
 }
 
