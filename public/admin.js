@@ -698,6 +698,7 @@ async function loadState() {
   if (data.weakPin) {
     pinNoteEl.textContent += ' 4桁PINは弱いため6〜8桁を推奨します。';
   }
+  renderAgentVersionNotice(data);
   if (rotatePinBtn) {
     rotatePinBtn.disabled = false;
     rotatePinBtn.title = '新しいPINを発行';
@@ -717,6 +718,20 @@ async function loadState() {
     return;
   }
   clearStateRecoveryTimer();
+}
+
+function renderAgentVersionNotice(data) {
+  const el = document.getElementById('agent-version-notice');
+  if (!el) return;
+  if (data.agentOutdated) {
+    el.style.display = 'block';
+    el.textContent =
+      `⚠️ Macエージェントが古いバージョンです（実行中: ${data.agentVersion} / 最新: ${data.latestAgentVersion}）。` +
+      ' /mac-setup を再実行して更新してください。';
+  } else {
+    el.style.display = 'none';
+    el.textContent = '';
+  }
 }
 
 async function ensureAppsReadyForModal(force = false) {

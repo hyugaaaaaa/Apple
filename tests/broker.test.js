@@ -146,6 +146,11 @@ test('Authenticated /api/admin/state returns config', async () => {
   assert.ok(Array.isArray(r.json.selectedSlots), 'selectedSlots array');
   // Confirm legacy selectedApps field has been removed (Step 7 unification)
   assert.equal(r.json.selectedApps, undefined);
+  // Agent version tracking fields are present
+  assert.ok('latestAgentVersion' in r.json, 'latestAgentVersion present');
+  assert.match(r.json.latestAgentVersion, /^\d{8}-\d+$/);
+  // No agent connected in this test → not flagged outdated
+  assert.equal(r.json.agentOutdated, false);
 });
 
 test('GET /sw.js injects build cache version', async () => {

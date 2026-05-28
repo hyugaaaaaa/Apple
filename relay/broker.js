@@ -39,6 +39,19 @@ const ADMIN_SESSION_TTL_MS = Number(process.env.ADMIN_SESSION_TTL_MS || (8 * 60 
 // timestamp for local dev.
 const CACHE_BUILD_ID = process.env.K_REVISION || process.env.CACHE_BUILD_ID || `dev-${Date.now()}`;
 
+// Latest agent version = the AGENT_VERSION literal in the mac-agent.js we serve.
+// Single source of truth: no manual sync needed between agent and broker.
+function readLatestAgentVersion() {
+  try {
+    const src = fs.readFileSync(path.join(__dirname, 'mac-agent.js'), 'utf-8');
+    const m = src.match(/const AGENT_VERSION = '([^']+)'/);
+    return m ? m[1] : 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
+const LATEST_AGENT_VERSION = readLatestAgentVersion();
+
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
@@ -695,7 +708,10 @@ async function handleApi(req, res, url) {
       limits: { itemsPerPage: ITEMS_PER_PAGE, pages: MAX_PAGES, maxCommands: MAX_COMMANDS },
       selectedSlots: config.selectedSlots,
       apps,
-      agentOnline: isAgentOnline(macId)
+      agentOnline: isAgentOnline(macId),
+      agentVersion: agent?.version || null,
+      latestAgentVersion: LATEST_AGENT_VERSION,
+      agentOutdated: !!(agent?.version && LATEST_AGENT_VERSION !== 'unknown' && agent.version !== LATEST_AGENT_VERSION)
     });
     return true;
   }
@@ -804,6 +820,7 @@ function handleAgentConnection(ws, req) {
       agent.connectedAt = Date.now();
       agent.lastSeenAt = Date.now();
       agent.deviceName = normalizeDeviceName(data.deviceName || macId);
+      agent.version = String(data.version || 'unknown');
       getOrCreateMacConfig(macId);
 
       ws.send(JSON.stringify({ type: 'agent_ack', ok: true, macId }));

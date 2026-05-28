@@ -1,5 +1,9 @@
 'use strict';
 
+// Bump on any agent behavior change. broker.js reads this same literal from
+// the served mac-agent.js to decide whether a connected agent is outdated.
+const AGENT_VERSION = '20260528-1';
+
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -362,7 +366,8 @@ function connect() {
       type: 'agent_hello',
       deviceId: DEVICE_ID,
       deviceName: DEVICE_NAME,
-      token: AGENT_TOKEN
+      token: AGENT_TOKEN,
+      version: AGENT_VERSION
     }));
     startPing();
   });
