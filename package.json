@@ -9,12 +9,15 @@
     "relay:agent": "node relay/mac-agent.js",
     "lint": "eslint --ext .js public/ relay/",
     "lint:fix": "eslint --ext .js public/ relay/ --fix",
-    "test": "node --test tests/*.test.js"
+    "test": "node --test tests/*.test.js",
+    "deploy": "wrangler deploy",
+    "preview": "wrangler dev"
   },
   "dependencies": {
     "ws": "^8.18.0"
   },
   "devDependencies": {
-    "eslint": "^8.57.1"
+    "eslint": "^8.57.1",
+    "wrangler": "^4.95.0"
   }
 }
