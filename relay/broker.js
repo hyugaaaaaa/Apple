@@ -33,6 +33,12 @@ const PIN_LOCK_MS = Number(process.env.PIN_LOCK_MS || (10 * 60 * 1000));
 const RPC_TIMEOUT_MS = Number(process.env.RPC_TIMEOUT_MS || 12000);
 const ADMIN_SESSION_TTL_MS = Number(process.env.ADMIN_SESSION_TTL_MS || (8 * 60 * 60 * 1000));
 
+// Per-deploy cache identifier injected into sw.js so the Service Worker
+// invalidates its cache automatically on every release. Cloud Run sets
+// K_REVISION (e.g. "left-controller-relay-00110-tw4"). Falls back to startup
+// timestamp for local dev.
+const CACHE_BUILD_ID = process.env.K_REVISION || process.env.CACHE_BUILD_ID || `dev-${Date.now()}`;
+
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
@@ -487,6 +493,23 @@ function serveStatic(req, res, url) {
       return;
     }
     const ext = path.extname(safePath).toLowerCase();
+
+    // Inject the per-deploy build id into sw.js so the cache version flips
+    // automatically on every release. Also force no-store so the browser
+    // always re-checks the SW file itself (required for SW updates to apply).
+    if (pathname === '/sw.js') {
+      const text = data.toString('utf-8').replace(
+        /const CACHE_VERSION = '[^']*';/,
+        `const CACHE_VERSION = 'build-${CACHE_BUILD_ID}';`
+      );
+      res.writeHead(200, {
+        'Content-Type': MIME_TYPES[ext] || 'application/javascript',
+        'Cache-Control': 'no-store'
+      });
+      res.end(text);
+      return;
+    }
+
     res.writeHead(200, { 'Content-Type': MIME_TYPES[ext] || 'application/octet-stream' });
     res.end(data);
   });
@@ -530,11 +553,9 @@ async function handleApi(req, res, url) {
     const pinStr = String(url.searchParams.get('pin') || '').trim();
 
     let macId = null;
-    let macConfig = null;
 
     if (pinStr) {
       macId = findMacByPin(pinStr);
-      if (macId) macConfig = macConfigs.get(macId);
     }
 
     sendJson(res, 200, {

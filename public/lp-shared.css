@@ -1,0 +1,222 @@
+/* =============================================================
+   lp-shared.css
+   Design tokens and reusable LP-style components used across
+   LP, help, admin login modal, mac-setup, etc.
+
+   Include via:
+     <link rel="stylesheet" href="/lp-shared.css">
+
+   Page-local <style> blocks may override any of these.
+   ============================================================= */
+
+:root {
+  /* Color tokens */
+  --lp-bg:           #000;
+  --lp-fg:           #fff;
+  --lp-fg-muted:     rgba(255, 255, 255, 0.7);
+  --lp-fg-dim:       rgba(255, 255, 255, 0.5);
+
+  /* Surface tokens */
+  --lp-border:        rgba(255, 255, 255, 0.12);
+  --lp-border-strong: rgba(255, 255, 255, 0.24);
+  --lp-card-bg:       rgba(255, 255, 255, 0.04);
+  --lp-code-bg:       rgba(255, 255, 255, 0.08);
+
+  /* CTA tokens */
+  --lp-cta-bg:        rgba(255, 255, 255, 0.1);
+  --lp-cta-bg-hover:  rgba(255, 255, 255, 0.16);
+  --lp-cta-bg-active: rgba(255, 255, 255, 0.18);
+  --lp-cta-border:    rgba(255, 255, 255, 0.24);
+
+  /* Motion */
+  --lp-ease-premium:  cubic-bezier(0.25, 1, 0.5, 1);
+
+  /* Status */
+  --lp-error: #ff6b6b;
+}
+
+/* Form elements inherit body font by default */
+input, button, select, textarea {
+  font-family: inherit;
+}
+
+/* === LP-style modal (used by admin login & PIN recovery) === */
+
+.lp-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.lp-modal-card {
+  background: var(--lp-bg);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 22px;
+  padding: 32px 26px;
+  width: min(360px, 90vw);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7);
+}
+
+.lp-modal-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.lp-modal-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--lp-fg);
+}
+
+.lp-modal-desc {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--lp-fg-muted);
+}
+
+.lp-modal-error {
+  margin: 0;
+  font-size: 13px;
+  color: var(--lp-error);
+  min-height: 1em;
+}
+
+.lp-label {
+  margin: 0;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* === Form input === */
+
+.lp-input {
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--lp-cta-border);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--lp-fg);
+  font-size: 15px;
+  width: 100%;
+  box-sizing: border-box;
+  outline: none;
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease;
+}
+.lp-input:focus {
+  border-color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.1);
+}
+.lp-input-pin {
+  font-size: 22px;
+  letter-spacing: 0.2em;
+  text-align: center;
+}
+
+/* === Pill CTA button === */
+
+.lp-cta {
+  appearance: none;
+  width: 100%;
+  border: 1px solid var(--lp-cta-border);
+  border-radius: 999px;
+  background: var(--lp-cta-bg);
+  color: var(--lp-fg);
+  font-size: 16px;
+  font-weight: 600;
+  min-height: 48px;
+  padding: 12px 22px;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s var(--lp-ease-premium);
+}
+.lp-cta:hover:not(:disabled) {
+  background: var(--lp-cta-bg-hover);
+  border-color: rgba(255, 255, 255, 0.36);
+}
+.lp-cta:active:not(:disabled) {
+  transform: scale(0.985);
+  background: var(--lp-cta-bg-active);
+  border-color: rgba(255, 255, 255, 0.46);
+}
+.lp-cta:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.lp-cta-secondary {
+  min-height: 36px;
+  font-size: 13px;
+  padding: 8px 14px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* === Misc text buttons === */
+
+.lp-link-btn {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.84);
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+.lp-link-btn:hover { color: var(--lp-fg); }
+
+.lp-back-btn {
+  background: none;
+  border: none;
+  color: var(--lp-fg-muted);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+.lp-back-btn:hover { color: var(--lp-fg); }
+
+/* === Result / info card === */
+
+.lp-result-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.lp-pin-value {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--lp-fg);
+  letter-spacing: 0.2em;
+  text-align: center;
+}
+
+/* === Reduced-motion respect === */
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-cta,
+  .lp-input {
+    transition: none !important;
+  }
+}

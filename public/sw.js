@@ -1,6 +1,9 @@
 'use strict';
 
-const CACHE_VERSION = 'v77';
+// CACHE_VERSION is overwritten at request time by broker.js using the
+// Cloud Run revision id (K_REVISION) so every deploy auto-invalidates.
+// The literal string below is only used in dev / direct file access.
+const CACHE_VERSION = 'local-dev';
 const CACHE_NAME = `left-controller-cache-${CACHE_VERSION}`;
 const APP_SHELL = [
   '/',
@@ -11,6 +14,7 @@ const APP_SHELL = [
   '/admin.html',
   '/help.html',
   '/style.css',
+  '/lp-shared.css',
   '/controller-layout.css',
   '/controller-orientation.css',
   '/common.js',

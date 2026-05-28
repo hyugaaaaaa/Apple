@@ -48,7 +48,6 @@ const pagePrevBtn = document.getElementById('page-prev');
 const pageNextBtn = document.getElementById('page-next');
 const pageDotsEl = document.getElementById('page-dots');
 const pageNavEl = document.querySelector('.controller-page-nav');
-const appShellEl = document.querySelector('.app-shell');
 const debugMiniEl = document.querySelector('.debug-mini');
 const debugDrawerEl = document.querySelector('.debug-drawer');
 

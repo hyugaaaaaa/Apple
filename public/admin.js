@@ -208,7 +208,6 @@ const MAX_REGISTERED_APPS = window.LeftController.LIMITS.maxCommands;
 
 let apps = [];
 let slotPaths = Array(MAX_REGISTERED_APPS).fill(null);
-let page = 'apps';
 let query = '';
 let modalQuery = '';
 let pinnedPage = 0;
@@ -274,20 +273,12 @@ function scheduleStateRecovery() {
 }
 
 function setPage(nextPage) {
-  page = nextPage;
   const appsActive = nextPage === 'apps';
   tabAppsBtn.classList.toggle('active', appsActive);
   tabAboutBtn.classList.toggle('active', !appsActive);
   viewAppsEl.classList.toggle('active', appsActive);
   viewAboutEl.classList.toggle('active', !appsActive);
   headTitleEl.textContent = appsActive ? '登録アプリ' : '情報';
-}
-
-function formatExpireAt(ts) {
-  const n = Number(ts || 0);
-  if (!n) return '-';
-  const d = new Date(n);
-  return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
 

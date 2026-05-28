@@ -425,12 +425,10 @@ process.on('SIGINT', () => {
   process.exit(0);
 });
 
-console.log('========================================');
-console.log('Left Controller Mac Agent Started');
-console.log(`Broker WS: ${BROKER_WS_URL}`);
-console.log(`Device ID: ${DEVICE_ID}`);
-console.log(`Device Name: ${DEVICE_NAME}`);
-console.log(`Agent token: ${AGENT_TOKEN ? 'set' : 'not set'}`);
-console.log('========================================');
+// Single-line startup banner (was 7 lines). Token is only reported as
+// "ok"/"missing" — never log the actual value.
+console.log(
+  `[AGENT] start id=${DEVICE_ID} name="${DEVICE_NAME}" ws=${BROKER_WS_URL} token=${AGENT_TOKEN ? 'ok' : 'missing'}`
+);
 
 connect();

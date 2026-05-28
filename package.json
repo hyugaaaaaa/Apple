@@ -6,9 +6,15 @@
   "scripts": {
     "start": "node relay/broker.js",
     "relay:broker": "node relay/broker.js",
-    "relay:agent": "node relay/mac-agent.js"
+    "relay:agent": "node relay/mac-agent.js",
+    "lint": "eslint --ext .js public/ relay/",
+    "lint:fix": "eslint --ext .js public/ relay/ --fix",
+    "test": "node --test tests/*.test.js"
   },
   "dependencies": {
     "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.1"
   }
 }
