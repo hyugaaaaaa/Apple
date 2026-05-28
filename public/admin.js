@@ -170,10 +170,11 @@ function copyRecoveryPin() {
   });
 }
 
-window.showPinRecovery = showPinRecovery;
-window.hidePinRecovery = hidePinRecovery;
-window.fetchRecoveryPin = fetchRecoveryPin;
-window.copyRecoveryPin = copyRecoveryPin;
+// PIN recovery buttons (bound via addEventListener instead of inline onclick)
+document.getElementById('pin-forgot-btn')?.addEventListener('click', showPinRecovery);
+document.getElementById('pin-recovery-back')?.addEventListener('click', hidePinRecovery);
+document.getElementById('pin-recovery-btn')?.addEventListener('click', fetchRecoveryPin);
+document.getElementById('pin-recovery-copy')?.addEventListener('click', copyRecoveryPin);
 // ─────────────────────────────────────────────────────────
 
 const pinCodeEl = document.getElementById('pin-code');

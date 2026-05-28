@@ -651,14 +651,14 @@
         <p id="admin-login-error" class="lp-modal-error"></p>
         <button id="admin-login-submit" type="button" class="lp-cta">ログイン</button>
         <div style="text-align:center">
-          <button type="button" onclick="showPinRecovery()" class="lp-link-btn">PINを忘れた場合</button>
+          <button type="button" id="pin-forgot-btn" class="lp-link-btn">PINを忘れた場合</button>
         </div>
       </div>
 
       <!-- PIN回復パネル -->
       <div id="pin-recovery-section" class="lp-modal-section" style="display:none">
         <div style="display:flex;align-items:center;gap:8px">
-          <button type="button" onclick="hidePinRecovery()" class="lp-back-btn" aria-label="戻る">←</button>
+          <button type="button" id="pin-recovery-back" class="lp-back-btn" aria-label="戻る">←</button>
           <h2 class="lp-modal-title">PIN を確認する</h2>
         </div>
         <p class="lp-modal-desc">Macのエージェントが起動中であれば、接続PINを確認できます。</p>
@@ -666,11 +666,11 @@
           <label class="lp-label">Mac名（例: my-macbook）</label>
           <input id="pin-recovery-device-input" type="text" placeholder="デバイスID" class="lp-input" />
         </div>
-        <button id="pin-recovery-btn" type="button" onclick="fetchRecoveryPin()" class="lp-cta">PINを確認する</button>
+        <button id="pin-recovery-btn" type="button" class="lp-cta">PINを確認する</button>
         <div id="pin-recovery-result" class="lp-result-card" style="display:none">
           <p class="lp-label">あなたの接続PIN</p>
           <p id="pin-recovery-value" class="lp-pin-value"></p>
-          <button type="button" onclick="copyRecoveryPin()" id="pin-recovery-copy" class="lp-cta lp-cta-secondary">コピー</button>
+          <button type="button" id="pin-recovery-copy" class="lp-cta lp-cta-secondary">コピー</button>
         </div>
         <p id="pin-recovery-error" class="lp-modal-error"></p>
       </div>
