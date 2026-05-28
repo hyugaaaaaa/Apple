@@ -17,9 +17,11 @@ Mac local agent — relay/mac-agent.js  (launchd 常駐)
 ## 主な機能
 
 - **アプリ起動**: アイコンをタップで Mac の対応アプリをフォアグラウンドへ
-- **ウィンドウ最小化**: アイコンをダブルタップでそのアプリのウィンドウを Dock へ最小化
+- **ウィンドウ最小化**: アイコンをダブルタップでそのアプリのウィンドウを Dock へ最小化（フルスクリーン時はアプリを Hide）
 - **他アプリ最小化**: アプリ起動時、他のアクティブウィンドウを自動的に最小化
 - **PIN回復**: 管理画面のログインモーダルから「PINを忘れた場合」でエージェント経由で再表示
+- **エージェント version 通知**: 管理画面で古いエージェントを検知し更新を促す
+- **ヘルプ**: `/help.html` に使い方・FAQ（LP からも導線あり）
 
 ## 画面遷移
 
@@ -80,6 +82,12 @@ AGENT_TOKENはチームで共有する値。Cloud Run の環境変数 `AGENT_TOK
 | `ADMIN_SESSION_TTL_MS` | | 管理画面セッション有効期限（デフォルト: 8時間） |
 | `PIN_MAX_ATTEMPTS` | | PIN試行回数上限（デフォルト: 5） |
 | `PIN_LOCK_MS` | | PINロック時間（デフォルト: 10分） |
+| `K_REVISION` | | Cloud Run が自動設定。`sw.js` のキャッシュバージョンに使用（手動 bump 不要） |
+| `CACHE_BUILD_ID` | | `K_REVISION` 未設定環境でのキャッシュ ID 上書き用（任意） |
+
+### Service Worker キャッシュの自動無効化
+
+`sw.js` の `CACHE_VERSION` はリクエスト時に broker.js が `K_REVISION`（Cloud Run のリビジョン ID）で書き換えるため、**デプロイのたびに自動でキャッシュが切り替わる**。手動でのバージョン bump は不要。`sw.js` 自体は `Cache-Control: no-store` で常に再検証される。
 
 ## API エンドポイント
 
@@ -114,3 +122,19 @@ node relay/mac-agent.js
 ```
 
 ブラウザ: `http://localhost:8080`
+
+## テスト・Lint
+
+```bash
+npm test       # broker.js の API スモークテスト（Node 標準 node:test、11ケース）
+npm run lint   # ESLint（public/ relay/）
+npm run lint:fix
+```
+
+CI（`.github/workflows/ci.yml`）が push / PR 時に `npm ci → lint → node --check → test` を自動実行する。
+
+## フロントエンド構成メモ
+
+- `public/lp-shared.css` — LP 配色トークン（`--lp-*`）と再利用コンポーネント（`.lp-cta`, `.lp-modal-*`, `.lp-input` 等）。admin / help などで共有
+- `public/common.js` — `resolveWsUrl` / `getOrCreateDeviceId` / `buildDeviceName` / `LIMITS` を集約（auth・controller・admin が読み込む）
+- `public/sw.js` — Service Worker。`APP_SHELL` に静的アセットを列挙（新規ページ追加時は要更新）
