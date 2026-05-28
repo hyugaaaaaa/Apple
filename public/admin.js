@@ -180,7 +180,6 @@ const pinCodeEl = document.getElementById('pin-code');
 const pinNoteEl = document.getElementById('pin-note');
 const saveStatusEl = document.getElementById('save-status');
 const saveBtn = document.getElementById('save-btn');
-const headInfoBtn = document.getElementById('head-info');
 const headTitleEl = document.getElementById('head-title');
 
 const tabAppsBtn = document.getElementById('tab-apps');
@@ -807,10 +806,6 @@ async function rotatePin() {
 
 saveBtn.addEventListener('click', () => {
   saveSelection();
-});
-
-headInfoBtn.addEventListener('click', () => {
-  setPage('about');
 });
 
 tabAppsBtn.addEventListener('click', () => {

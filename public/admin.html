@@ -369,16 +369,6 @@
       border-color: rgba(255, 255, 255, 0.4);
     }
 
-    .head-info {
-      width: 56px;
-      height: 56px;
-      border-radius: 999px;
-      display: grid;
-      place-items: center;
-      font-size: 36px;
-      padding: 0;
-    }
-
     .view {
       display: none;
       padding: 18px 24px 18px;
@@ -501,38 +491,66 @@
     .dots .dot-btn:disabled { opacity: 0.45; cursor: default; }
 
     .about-card {
-      border: 1px solid rgba(255, 255, 255, 0.11);
-      border-radius: 20px;
-      background: rgba(8, 8, 8, 0.8);
-      padding: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 32px;
+      background: linear-gradient(180deg, rgba(12, 12, 12, 0.92), rgba(6, 6, 6, 0.95));
+      padding: clamp(28px, 4vw, 56px);
       color: #f1f1f1;
-      max-width: 560px;
-      font-size: 18px;
+      max-width: 960px;
+      margin: 0 auto;
+      font-size: clamp(18px, 1.6vw, 24px);
       line-height: 1.6;
+      display: grid;
+      gap: 14px;
+    }
+
+    .about-card > :first-child {
+      font-size: clamp(20px, 1.9vw, 28px);
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.84);
+      letter-spacing: 0.02em;
+      margin: 0;
     }
 
     .about-card .pin {
-      font-size: 42px;
+      font-size: clamp(56px, 11vw, 128px);
       letter-spacing: 0.14em;
       font-weight: 800;
+      line-height: 1.05;
+      margin: 8px 0 4px;
+      text-shadow: 0 0 40px rgba(255, 255, 255, 0.08);
     }
 
     .about-device {
-      margin: 6px 0 12px;
-      font-size: 14px;
-      color: rgba(255, 255, 255, 0.72);
+      margin: 0;
+      font-size: clamp(15px, 1.3vw, 18px);
+      color: rgba(255, 255, 255, 0.66);
+      letter-spacing: 0.02em;
+    }
+
+    #pin-note {
+      font-size: clamp(14px, 1.2vw, 17px);
+      color: rgba(255, 255, 255, 0.7);
+      margin: 4px 0 0;
     }
 
     .about-actions {
       display: flex;
-      gap: 8px;
-      margin-top: 12px;
+      gap: 12px;
+      margin-top: 18px;
       flex-wrap: wrap;
+    }
+    .about-actions .head-btn {
+      font-size: clamp(15px, 1.4vw, 20px);
+      padding: 14px 28px;
+      border-radius: 999px;
+      min-height: 48px;
     }
 
     .status-line {
-      margin-top: 10px;
-      color: rgba(255, 255, 255, 0.72);
+      margin-top: 14px;
+      color: rgba(255, 255, 255, 0.6);
+      font-size: clamp(13px, 1.1vw, 15px);
       min-height: 1.2em;
     }
 
@@ -702,14 +720,14 @@
       }
       .head h1 { font-size: 18px; }
       .head-btn { font-size: 13px; padding: 7px 10px; border-radius: 9px; }
-      .head-info { width: 34px; height: 34px; font-size: 18px; }
       .view { padding: 12px 14px; overflow: auto; }
       .pinned-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 14px; }
       .icon-wrap { width: 80px; height: 80px; border-radius: 20px; }
       .icon-wrap img { width: 54px; height: 54px; border-radius: 14px; }
       .pin-name { font-size: 13px; }
-      .about-card { font-size: 14px; }
-      .about-card .pin { font-size: 28px; }
+      /* about-card now uses clamp() values, no override needed */
+      .about-card { padding: 24px 20px; border-radius: 24px; }
+      .about-actions .head-btn { padding: 12px 20px; min-height: 44px; }
     }
   </style>
 </head>
@@ -728,7 +746,6 @@
           <h1 id="head-title">登録アプリ</h1>
           <div class="head-actions">
             <button id="save-btn" class="head-btn primary" type="button">保存</button>
-            <button id="head-info" class="head-btn head-info" type="button">i</button>
           </div>
         </header>
 
@@ -758,6 +775,7 @@
             <div class="about-actions">
               <button id="copy-pin-btn" class="head-btn" type="button">PINをコピー</button>
               <button id="rotate-pin-btn" class="head-btn" type="button">PIN再発行</button>
+              <a href="/help.html" class="head-btn" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">ヘルプ</a>
             </div>
             <div id="device-pin-list" class="device-pin-list"></div>
             <div id="save-status" class="status-line">-</div>
@@ -821,6 +839,6 @@
   </div>
 
   <script src="/common.js?v=20260527-common1"></script>
-  <script src="/admin.js?v=20260527-admin6"></script>
+  <script src="/admin.js?v=20260527-admin7"></script>
 </body>
 </html>

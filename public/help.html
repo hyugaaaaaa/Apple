@@ -1,0 +1,803 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#000000" />
+  <title>ヘルプ — Left Controller</title>
+  <link rel="icon" href="/favicon.png" type="image/png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <style>
+    :root {
+      --bg: #000;
+      --fg: #fff;
+      --fg-muted: rgba(255, 255, 255, 0.72);
+      --fg-dim: rgba(255, 255, 255, 0.5);
+      --border: rgba(255, 255, 255, 0.12);
+      --border-strong: rgba(255, 255, 255, 0.24);
+      --card-bg: rgba(255, 255, 255, 0.03);
+      --code-bg: rgba(255, 255, 255, 0.08);
+      --cta-bg: rgba(255, 255, 255, 0.1);
+      --accent: rgba(120, 180, 255, 0.9);
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: "SF Pro Display", "Hiragino Sans", "Noto Sans JP", sans-serif;
+      -webkit-font-smoothing: antialiased;
+      line-height: 1.7;
+      -webkit-text-size-adjust: 100%;
+      overflow-x: hidden;
+    }
+
+    .top-bar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: rgba(0, 0, 0, 0.78);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: max(12px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) 12px max(20px, env(safe-area-inset-left));
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-height: 44px;
+    }
+    .top-bar .back {
+      appearance: none;
+      background: var(--cta-bg);
+      border: 1px solid var(--border-strong);
+      border-radius: 999px;
+      color: #fff;
+      padding: 8px 16px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background-color 0.2s ease;
+      min-height: 36px;
+      display: inline-flex;
+      align-items: center;
+      white-space: nowrap;
+    }
+    .top-bar .back:hover { background: rgba(255, 255, 255, 0.16); }
+    .top-bar h1 {
+      margin: 0;
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    main {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 40px max(24px, env(safe-area-inset-right)) calc(80px + env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+    }
+
+    .hero {
+      text-align: center;
+      padding: 24px 0 56px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 56px;
+    }
+    .hero h2 {
+      margin: 0 0 14px;
+      font-size: clamp(30px, 5.6vw, 44px);
+      font-weight: 700;
+      line-height: 1.25;
+      letter-spacing: 0.01em;
+    }
+    .hero p {
+      margin: 0 auto;
+      font-size: clamp(15px, 2.4vw, 17px);
+      color: var(--fg-muted);
+      max-width: 56ch;
+    }
+
+    section.help-section {
+      margin-bottom: 56px;
+    }
+    section.help-section > h3 {
+      margin: 0 0 22px;
+      font-size: clamp(22px, 3.6vw, 28px);
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+    }
+    section.help-section > h3 .sec-num {
+      color: var(--fg-dim);
+      font-size: 0.72em;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+    }
+
+    .step-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 22px 24px;
+      margin-bottom: 14px;
+    }
+    .step-card h4 {
+      margin: 0 0 10px;
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+    .step-card p {
+      margin: 0 0 8px;
+      color: var(--fg-muted);
+      font-size: 15px;
+    }
+    .step-card p:last-child { margin-bottom: 0; }
+
+    .step-card ol, .step-card ul {
+      margin: 8px 0 0;
+      padding-left: 22px;
+      color: var(--fg-muted);
+      font-size: 15px;
+    }
+    .step-card ol li, .step-card ul li { margin-bottom: 6px; }
+
+    kbd {
+      display: inline-block;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px 8px;
+      font-family: "SF Mono", ui-monospace, Menlo, monospace;
+      font-size: 13px;
+      color: #fff;
+      white-space: nowrap;
+    }
+    code {
+      background: var(--code-bg);
+      border-radius: 5px;
+      padding: 1px 6px;
+      font-family: "SF Mono", ui-monospace, Menlo, monospace;
+      font-size: 13px;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+    }
+    /* Long shell commands in their own paragraph: horizontal scroll */
+    .faq-body p code:only-child {
+      display: block;
+      padding: 10px 12px;
+      white-space: pre;
+      overflow-x: auto;
+      font-size: 12px;
+      line-height: 1.5;
+      -webkit-overflow-scrolling: touch;
+      word-break: normal;
+      overflow-wrap: normal;
+    }
+
+    .gesture-row {
+      display: grid;
+      grid-template-columns: 72px 1fr;
+      gap: 16px;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--border);
+      align-items: center;
+    }
+    .gesture-row:last-child { border-bottom: none; }
+    .gesture-icon {
+      font-size: clamp(22px, 5vw, 28px);
+      text-align: center;
+      line-height: 1;
+    }
+    .gesture-text {
+      min-width: 0;
+    }
+    .gesture-text strong {
+      display: block;
+      font-size: clamp(15px, 3.4vw, 16px);
+      margin-bottom: 4px;
+    }
+    .gesture-text span {
+      color: var(--fg-muted);
+      font-size: clamp(13px, 3vw, 14px);
+    }
+
+    .faq-item {
+      border-bottom: 1px solid var(--border);
+      padding: 18px 0;
+    }
+    .faq-item:last-child { border-bottom: none; }
+    .faq-item summary {
+      cursor: pointer;
+      font-weight: 600;
+      font-size: clamp(15px, 3.4vw, 16px);
+      list-style: none;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 14px;
+      min-height: 44px;
+      line-height: 1.5;
+    }
+    .faq-icon {
+      font-size: clamp(20px, 4.4vw, 24px);
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      filter: drop-shadow(0 0 0 transparent);
+      transition: filter 420ms var(--ease-premium), background-color 320ms var(--ease-premium), border-color 320ms var(--ease-premium);
+    }
+    .faq-section.is-visible .faq-icon {
+      filter: drop-shadow(0 0 10px var(--accent, rgba(255,255,255,.3)));
+    }
+    .faq-item[open] .faq-icon,
+    .faq-item:hover .faq-icon {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.16);
+      filter: drop-shadow(0 0 16px var(--accent, rgba(255,255,255,.4)));
+    }
+    .faq-q { min-width: 0; }
+    .faq-item summary::-webkit-details-marker { display: none; }
+    .faq-item summary::after {
+      content: "+";
+      font-size: 22px;
+      color: var(--fg-dim);
+      transition: transform 0.2s ease;
+    }
+    .faq-item[open] summary::after {
+      content: "−";
+    }
+    .faq-item .faq-body {
+      margin-top: 12px;
+      color: var(--fg-muted);
+      font-size: 15px;
+    }
+    .faq-item .faq-body p { margin: 0 0 8px; }
+    .faq-item .faq-body p:last-child { margin-bottom: 0; }
+
+    .nav-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 24px;
+    }
+    .nav-links a {
+      appearance: none;
+      background: var(--cta-bg);
+      border: 1px solid var(--border-strong);
+      border-radius: 999px;
+      color: #fff;
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 500;
+      text-decoration: none;
+      transition: background-color 0.2s ease, border-color 0.2s ease;
+      min-height: 40px;
+      display: inline-flex;
+      align-items: center;
+      white-space: nowrap;
+    }
+    .nav-links a:hover {
+      background: rgba(255, 255, 255, 0.16);
+      border-color: rgba(255, 255, 255, 0.36);
+    }
+
+    .footer {
+      text-align: center;
+      padding-top: 32px;
+      border-top: 1px solid var(--border);
+      color: var(--fg-dim);
+      font-size: 13px;
+    }
+
+    /* ============================================================
+       Animations
+       ============================================================ */
+
+    :root {
+      --ease-premium: cubic-bezier(0.25, 1, 0.5, 1);
+    }
+
+    /* Page-load hero entry */
+    @keyframes hero-rise {
+      from { opacity: 0; transform: translateY(28px); filter: blur(6px); }
+      to   { opacity: 1; transform: translateY(0);    filter: blur(0); }
+    }
+    .hero h2 {
+      animation: hero-rise 900ms var(--ease-premium) 120ms both;
+    }
+    .hero p {
+      animation: hero-rise 900ms var(--ease-premium) 320ms both;
+    }
+
+    /* Top bar slides down on load */
+    @keyframes topbar-slide {
+      from { opacity: 0; transform: translateY(-14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .top-bar {
+      animation: topbar-slide 600ms var(--ease-premium) both;
+    }
+
+    /* Scroll-reveal: sections start hidden and rise into view via IO */
+    .reveal {
+      opacity: 0;
+      transform: translateY(28px);
+      transition:
+        opacity 800ms var(--ease-premium),
+        transform 800ms var(--ease-premium);
+      will-change: opacity, transform;
+    }
+    .reveal.is-visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    /* Staggered children inside a revealed section */
+    .reveal .step-card,
+    .reveal .faq-item,
+    .reveal .nav-links a {
+      opacity: 0;
+      transform: translateY(16px);
+      transition:
+        opacity 600ms var(--ease-premium),
+        transform 600ms var(--ease-premium);
+    }
+    .reveal.is-visible .step-card,
+    .reveal.is-visible .faq-item,
+    .reveal.is-visible .nav-links a {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .reveal.is-visible .step-card:nth-child(1),
+    .reveal.is-visible .faq-item:nth-child(1),
+    .reveal.is-visible .nav-links a:nth-child(1) { transition-delay: 80ms; }
+    .reveal.is-visible .step-card:nth-child(2),
+    .reveal.is-visible .faq-item:nth-child(2),
+    .reveal.is-visible .nav-links a:nth-child(2) { transition-delay: 160ms; }
+    .reveal.is-visible .step-card:nth-child(3),
+    .reveal.is-visible .faq-item:nth-child(3),
+    .reveal.is-visible .nav-links a:nth-child(3) { transition-delay: 240ms; }
+    .reveal.is-visible .step-card:nth-child(4),
+    .reveal.is-visible .faq-item:nth-child(4),
+    .reveal.is-visible .nav-links a:nth-child(4) { transition-delay: 320ms; }
+    .reveal.is-visible .step-card:nth-child(5),
+    .reveal.is-visible .faq-item:nth-child(5),
+    .reveal.is-visible .nav-links a:nth-child(5) { transition-delay: 400ms; }
+    .reveal.is-visible .faq-item:nth-child(6) { transition-delay: 480ms; }
+
+    /* ============================================================
+       FAQ section: cinematic blur-to-sharp stagger (video-style)
+       Overrides the generic .reveal .faq-item rules above.
+       ============================================================ */
+
+    .faq-section.reveal .faq-item {
+      opacity: 0;
+      transform: translateY(24px) scale(0.94);
+      filter: blur(14px);
+      transition:
+        opacity 1000ms var(--ease-premium),
+        transform 1000ms var(--ease-premium),
+        filter 1000ms var(--ease-premium);
+      will-change: opacity, transform, filter;
+    }
+    .faq-section.reveal.is-visible .faq-item {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      filter: blur(0);
+    }
+
+    /* Long stagger so each FAQ item de-blurs into focus, one at a time */
+    .faq-section.is-visible .faq-item:nth-of-type(1) { transition-delay: 60ms !important; }
+    .faq-section.is-visible .faq-item:nth-of-type(2) { transition-delay: 460ms !important; }
+    .faq-section.is-visible .faq-item:nth-of-type(3) { transition-delay: 860ms !important; }
+    .faq-section.is-visible .faq-item:nth-of-type(4) { transition-delay: 1260ms !important; }
+    .faq-section.is-visible .faq-item:nth-of-type(5) { transition-delay: 1660ms !important; }
+    .faq-section.is-visible .faq-item:nth-of-type(6) { transition-delay: 2060ms !important; }
+
+    /* Icon glow pulse on reveal — accent color flashes in then settles */
+    @keyframes faq-icon-flash {
+      0%   { filter: drop-shadow(0 0 0 transparent); transform: scale(0.85); }
+      50%  { filter: drop-shadow(0 0 22px var(--accent, rgba(255,255,255,.5))); transform: scale(1.08); }
+      100% { filter: drop-shadow(0 0 10px var(--accent, rgba(255,255,255,.3))); transform: scale(1); }
+    }
+    .faq-section.is-visible .faq-item .faq-icon {
+      animation: faq-icon-flash 1200ms var(--ease-premium) both;
+    }
+    .faq-section.is-visible .faq-item:nth-of-type(1) .faq-icon { animation-delay: 240ms; }
+    .faq-section.is-visible .faq-item:nth-of-type(2) .faq-icon { animation-delay: 640ms; }
+    .faq-section.is-visible .faq-item:nth-of-type(3) .faq-icon { animation-delay: 1040ms; }
+    .faq-section.is-visible .faq-item:nth-of-type(4) .faq-icon { animation-delay: 1440ms; }
+    .faq-section.is-visible .faq-item:nth-of-type(5) .faq-icon { animation-delay: 1840ms; }
+    .faq-section.is-visible .faq-item:nth-of-type(6) .faq-icon { animation-delay: 2240ms; }
+
+    /* Title (h3) also de-blurs slightly ahead of items for orchestration */
+    .faq-section.reveal h3 {
+      opacity: 0;
+      transform: translateY(20px);
+      filter: blur(6px);
+      transition:
+        opacity 800ms var(--ease-premium),
+        transform 800ms var(--ease-premium),
+        filter 800ms var(--ease-premium);
+    }
+    .faq-section.reveal.is-visible h3 {
+      opacity: 1;
+      transform: translateY(0);
+      filter: blur(0);
+    }
+
+    /* Disable for reduced-motion */
+    @media (prefers-reduced-motion: reduce) {
+      .faq-section.reveal .faq-item,
+      .faq-section.reveal h3,
+      .faq-section.is-visible .faq-item .faq-icon {
+        opacity: 1 !important;
+        transform: none !important;
+        filter: none !important;
+        animation: none !important;
+        transition: none !important;
+      }
+    }
+
+    /* Card hover: gentle lift */
+    .step-card {
+      transition:
+        transform 320ms var(--ease-premium),
+        background-color 320ms var(--ease-premium),
+        border-color 320ms var(--ease-premium),
+        box-shadow 320ms var(--ease-premium);
+    }
+    @media (hover: hover) {
+      .step-card:hover {
+        transform: translateY(-2px);
+        background: rgba(255, 255, 255, 0.05);
+        border-color: rgba(255, 255, 255, 0.2);
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+      }
+    }
+
+    /* Gesture icon: soft breathing pulse */
+    @keyframes gesture-pulse {
+      0%, 100% { transform: scale(1); opacity: 0.95; }
+      50%      { transform: scale(1.08); opacity: 1; }
+    }
+    .gesture-icon {
+      animation: gesture-pulse 3.4s ease-in-out infinite;
+      display: inline-block;
+    }
+    .gesture-row:nth-child(2) .gesture-icon { animation-delay: 0.5s; }
+    .gesture-row:nth-child(3) .gesture-icon { animation-delay: 1s; }
+
+    /* FAQ smooth expand */
+    .faq-item summary::after {
+      transition: transform 280ms var(--ease-premium), color 280ms var(--ease-premium);
+    }
+    .faq-item[open] summary::after {
+      transform: rotate(180deg);
+      color: var(--fg);
+    }
+    .faq-item .faq-body {
+      transform-origin: top;
+      animation: faq-open 380ms var(--ease-premium);
+    }
+    @keyframes faq-open {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Section heading number subtle pulse on reveal */
+    .reveal.is-visible section.help-section > h3 .sec-num {
+      animation: secnum-fade 1100ms var(--ease-premium) 200ms both;
+    }
+    @keyframes secnum-fade {
+      0%   { opacity: 0; letter-spacing: 0.04em; }
+      60%  { opacity: 1; letter-spacing: 0.1em; }
+      100% { opacity: 1; letter-spacing: 0.1em; }
+    }
+
+    /* CTA / link buttons subtle hover scale */
+    .top-bar .back,
+    .nav-links a {
+      transition:
+        background-color 0.2s ease,
+        border-color 0.2s ease,
+        transform 0.2s var(--ease-premium);
+    }
+    @media (hover: hover) {
+      .top-bar .back:hover,
+      .nav-links a:hover {
+        transform: translateY(-1px);
+      }
+    }
+    .top-bar .back:active,
+    .nav-links a:active {
+      transform: scale(0.97);
+    }
+
+    /* Respect user preference: kill animations */
+    @media (prefers-reduced-motion: reduce) {
+      .hero h2, .hero p, .top-bar,
+      .reveal, .reveal .step-card, .reveal .faq-item, .reveal .nav-links a,
+      .step-card, .gesture-icon, .faq-item .faq-body,
+      .top-bar .back, .nav-links a {
+        animation: none !important;
+        transition: none !important;
+        transform: none !important;
+        opacity: 1 !important;
+        filter: none !important;
+      }
+    }
+
+    /* Tablet & narrower desktop */
+    @media (max-width: 768px) {
+      .hero { padding: 16px 0 44px; margin-bottom: 44px; }
+      section.help-section { margin-bottom: 44px; }
+      section.help-section > h3 { margin-bottom: 18px; }
+    }
+
+    /* Mobile (smartphones) */
+    @media (max-width: 480px) {
+      .top-bar { gap: 10px; padding-left: max(14px, env(safe-area-inset-left)); padding-right: max(14px, env(safe-area-inset-right)); }
+      .top-bar .back { padding: 7px 14px; font-size: 13px; }
+      .top-bar h1 { font-size: 16px; }
+
+      main { padding: 24px max(16px, env(safe-area-inset-right)) calc(48px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
+      .hero { padding-bottom: 36px; margin-bottom: 36px; }
+      .hero p { font-size: 14px; line-height: 1.65; }
+
+      .step-card { padding: 16px 16px; border-radius: 14px; }
+      .step-card h4 { font-size: 15px; }
+      .step-card p, .step-card ol, .step-card ul { font-size: 14px; }
+
+      .gesture-row { grid-template-columns: 56px 1fr; gap: 12px; padding: 12px 0; }
+
+      .faq-item { padding: 14px 0; }
+      .faq-item .faq-body { font-size: 14px; }
+
+      .nav-links { gap: 8px; }
+      .nav-links a { padding: 9px 16px; font-size: 13px; }
+    }
+
+    /* Very small devices (iPhone SE 1st gen, etc.) */
+    @media (max-width: 360px) {
+      .hero h2 { font-size: 26px; }
+      section.help-section > h3 { font-size: 20px; gap: 8px; }
+      section.help-section > h3 .sec-num { font-size: 0.68em; }
+      .step-card { padding: 14px 14px; }
+      .gesture-row { grid-template-columns: 48px 1fr; gap: 10px; }
+      kbd, code { font-size: 12px; }
+    }
+
+    /* Landscape on phones — compact hero */
+    @media (max-height: 500px) and (orientation: landscape) {
+      .hero { padding: 8px 0 24px; margin-bottom: 24px; }
+      .hero h2 { font-size: 24px; }
+      .hero p { font-size: 14px; }
+      section.help-section { margin-bottom: 32px; }
+    }
+
+    /* Reduce motion */
+    @media (prefers-reduced-motion: reduce) {
+      * { transition-duration: 1ms !important; animation-duration: 1ms !important; }
+    }
+
+    /* Print: clean black-on-white */
+    @media print {
+      html, body { background: #fff !important; color: #000 !important; }
+      .top-bar, .nav-links { display: none !important; }
+      .step-card, .faq-item { border-color: #ccc !important; background: #fff !important; }
+      code, kbd { background: #f0f0f0 !important; color: #000 !important; border-color: #ddd !important; }
+      .faq-item details:not([open]) .faq-body { display: block !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="top-bar">
+    <a class="back" href="javascript:history.length>1?history.back():location.assign('/lp-onboarding.html')">← 戻る</a>
+    <h1>ヘルプ</h1>
+  </div>
+
+  <main>
+    <div class="hero">
+      <h2>iPhone を Mac の<br>左手デバイスに。</h2>
+      <p>Left Controller は、iPhone をワイヤレスのアプリ起動ランチャーとして Mac の隣に置いて使う PWA アプリです。タップひとつで Mac のアプリが起動・最小化されます。</p>
+    </div>
+
+    <!-- ========== 1. はじめての方へ ========== -->
+    <section class="help-section reveal">
+      <h3><span class="sec-num">01</span>はじめての方へ</h3>
+
+      <div class="step-card">
+        <h4>1. Mac 側のセットアップ</h4>
+        <p>Mac の Safari で <code>/mac-setup</code> を開き、エージェント用のセットアップスクリプトをダウンロードしてターミナルで実行します。</p>
+        <ul>
+          <li>ホームフォルダに <code>~/.left-controller/</code> が作られます</li>
+          <li>Mac エージェントが launchd で常駐し、ログイン時に自動起動します</li>
+          <li>セットアップ完了画面に「接続PIN」が表示されます。必ず控えてください</li>
+        </ul>
+      </div>
+
+      <div class="step-card">
+        <h4>2. iPhone 側のセットアップ</h4>
+        <p>iPhone の Safari で同じ URL を開き、画面下部の <kbd>共有</kbd> → <kbd>ホーム画面に追加</kbd> で PWA を追加します。</p>
+        <ul>
+          <li>ホーム画面のアイコンから起動すると認証画面が表示されます</li>
+          <li>Mac 側で表示された接続PIN を入力します</li>
+          <li>認証後、コントローラー画面に遷移します</li>
+        </ul>
+      </div>
+
+      <div class="step-card">
+        <h4>3. アプリの登録（Mac 側）</h4>
+        <p>Mac の Safari で <code>/admin.html</code> を開き、PIN でログインします。</p>
+        <ul>
+          <li>「アプリ」タブから登録したいアプリを選んでスロットに割り当て</li>
+          <li>最大 24 個（8アプリ × 3ページ）まで登録可能</li>
+          <li>「保存」を押すと iPhone 側にすぐ反映されます</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ========== 2. コントローラーの使い方 ========== -->
+    <section class="help-section reveal">
+      <h3><span class="sec-num">02</span>コントローラーの使い方</h3>
+
+      <div class="step-card">
+        <div class="gesture-row">
+          <div class="gesture-icon">👆</div>
+          <div class="gesture-text">
+            <strong>1回タップ</strong>
+            <span>アプリを起動し、フォアグラウンドに表示。他のウィンドウは自動的に最小化されます。</span>
+          </div>
+        </div>
+        <div class="gesture-row">
+          <div class="gesture-icon">👆👆</div>
+          <div class="gesture-text">
+            <strong>ダブルタップ（320ms 以内に2回）</strong>
+            <span>そのアプリのウィンドウを Dock へ最小化。再度タップするとフォアグラウンドに戻ります。</span>
+          </div>
+        </div>
+        <div class="gesture-row">
+          <div class="gesture-icon">←→</div>
+          <div class="gesture-text">
+            <strong>左右スワイプ / ページ送り</strong>
+            <span>ページを切り替えて、登録した別のアプリ群を表示します。</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== 3. 管理画面 ========== -->
+    <section class="help-section reveal">
+      <h3><span class="sec-num">03</span>管理画面の操作</h3>
+
+      <div class="step-card">
+        <h4>接続PIN の確認・再発行</h4>
+        <p>管理画面の <kbd>ⓘ 情報</kbd> タブから現在の PIN を確認できます。「PIN再発行」で新しいPIN に切り替え可能です。</p>
+        <p>PIN を忘れた場合は、ログイン画面の「PINを忘れた場合」→「PINを確認する」で Mac エージェント経由で再表示できます（エージェントが起動中である必要があります）。</p>
+      </div>
+
+      <div class="step-card">
+        <h4>登録アプリの並べ替え</h4>
+        <p>「アプリ」タブのスロットをタップすると、別のアプリと入れ替え可能です。空きスロットには新規アプリを追加できます。</p>
+      </div>
+    </section>
+
+    <!-- ========== 4. トラブルシューティング ========== -->
+    <section class="help-section reveal faq-section">
+      <h3><span class="sec-num">04</span>困ったときは</h3>
+
+      <details class="faq-item" style="--accent: #f7a85b">
+        <summary><span class="faq-icon" aria-hidden="true">📡</span><span class="faq-q">iPhone から接続できない</span></summary>
+        <div class="faq-body">
+          <p>Mac エージェントが起動していない可能性があります。Mac のターミナルで以下を実行して状態を確認してください：</p>
+          <p><code>launchctl print gui/$(id -u)/com.leftcontroller.mac-agent | grep state</code></p>
+          <p><code>state = running</code> でない場合は、以下で再起動できます：</p>
+          <p><code>launchctl kickstart -k gui/$(id -u)/com.leftcontroller.mac-agent</code></p>
+        </div>
+      </details>
+
+      <details class="faq-item" style="--accent: #6dd76d">
+        <summary><span class="faq-icon" aria-hidden="true">🪟</span><span class="faq-q">ダブルタップで最小化できないアプリがある</span></summary>
+        <div class="faq-body">
+          <p>Mac の Accessibility 権限が必要なアプリ（Electron 系を含む一部のアプリ）があります。通常は付属の Swift ヘルパー（<code>~/.left-controller/leftctl-minimize</code>）が AX API 経由で動作しますが、まれに失敗する場合は次を確認してください：</p>
+          <ul>
+            <li>Mac エージェントが最新版か（<code>launchctl print</code> で確認）</li>
+            <li><code>leftctl-minimize</code> が存在するか（<code>ls ~/.left-controller/</code>）</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="faq-item" style="--accent: #ff7b7b">
+        <summary><span class="faq-icon" aria-hidden="true">🛡️</span><span class="faq-q">許可ダイアログが大量に出る</span></summary>
+        <div class="faq-body">
+          <p>初回のみ macOS が各アプリの操作許可を求めます。Swift ヘルパーは AX API を使用するため、通常は明示的な許可なしに動作しますが、AppleScript フォールバックを使う場合は「自動化」権限のダイアログが表示されることがあります。</p>
+        </div>
+      </details>
+
+      <details class="faq-item" style="--accent: #6bb6ff">
+        <summary><span class="faq-icon" aria-hidden="true">📲</span><span class="faq-q">登録したアプリが iPhone 側に表示されない</span></summary>
+        <div class="faq-body">
+          <p>管理画面で「保存」ボタンを押したか確認してください。保存後は数秒以内に iPhone 側のコントローラーに反映されます。</p>
+          <p>反映されない場合は、iPhone 側で PWA をいったん閉じて再起動するか、コントローラー画面下部のデバッグから「キャッシュクリア」を実行してください。</p>
+        </div>
+      </details>
+
+      <details class="faq-item" style="--accent: #c08bff">
+        <summary><span class="faq-icon" aria-hidden="true">🔐</span><span class="faq-q">認証後にコントローラー画面に遷移しない</span></summary>
+        <div class="faq-body">
+          <p>PIN を正しく入力したかを確認してください。5回間違えると 10 分間ロックされます。ロック解除を待つか、管理画面から PIN を再発行してください。</p>
+        </div>
+      </details>
+
+      <details class="faq-item" style="--accent: #ffc845">
+        <summary><span class="faq-icon" aria-hidden="true">🖥️</span><span class="faq-q">複数の Mac で使いたい</span></summary>
+        <div class="faq-body">
+          <p>各 Mac ごとに別の <code>DEVICE_ID</code> を設定し、それぞれセットアップを実行してください。リレー側で <code>MAC_PINS</code> 環境変数を <code>"mac1:111111,mac2:222222"</code> のように設定すれば、Mac ごとに固定 PIN を割り当てられます。</p>
+        </div>
+      </details>
+    </section>
+
+    <!-- ========== 5. リンク ========== -->
+    <section class="help-section reveal">
+      <h3><span class="sec-num">05</span>関連リンク</h3>
+      <div class="nav-links">
+        <a href="/lp-onboarding.html">オンボーディングを見る</a>
+        <a href="/mac-setup.html">Mac セットアップ</a>
+        <a href="/admin.html">管理画面</a>
+        <a href="/auth.html">iPhone 認証</a>
+      </div>
+    </section>
+
+    <div class="footer">
+      Left Controller — iPhone を Mac の左手デバイスに。
+    </div>
+  </main>
+
+  <script>
+    (() => {
+      'use strict';
+      // Respect reduced-motion: reveal everything immediately
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const targets = document.querySelectorAll('.reveal');
+
+      if (reduceMotion || !('IntersectionObserver' in window)) {
+        targets.forEach((el) => el.classList.add('is-visible'));
+        return;
+      }
+
+      const io = new IntersectionObserver((entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-visible');
+            io.unobserve(entry.target);
+          }
+        }
+      }, {
+        // Reveal a bit before fully scrolled into view
+        rootMargin: '0px 0px -10% 0px',
+        threshold: 0.08
+      });
+
+      targets.forEach((el) => io.observe(el));
+    })();
+  </script>
+</body>
+</html>
